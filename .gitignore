@@ -1,0 +1,15 @@
+# Cabal
+dist
+dist-newstyle
+.cabal-sandbox/
+cabal.sandbox.config
+
+# Stack
+.stack-work
+
+# Emacs
+TAGS
+.dir-locals.el
+
+# Vim
+tags
