@@ -68,12 +68,14 @@ deriving instance (Show (g (Maybe Natural)), Show (g (Color))) => Show (PrimText
 -- from -1 to 1
 newtype Curvature = Curvature Rational
 
+-- | curve direction
 data Direction =
   Direction
     { directionLeftToRight :: Bool,
       directionTopToBottom :: Bool
     }
 
+-- | adt for curves
 data PrimCurve g =
   PrimCurve
     { curveExtents :: Extents,
@@ -82,6 +84,21 @@ data PrimCurve g =
       curveDirection :: g Direction
     }
 
+-- | circle point
+type Point = (Float, Float)
+-- | circle polygon
+type Polygon = [Point]
+
+-- | draw a circle
+circle :: Point -> Float -> Polygon
+circle (x,y) r = Prelude.map (\t -> (x + r * cos (t), y + r * sin (t))) [0, 0.2..(2 * pi)]
+
+--center  radius
+ball ::  Polygon
+ball = circle (0,0.2) 0.2
+
+
+-- | Inj typeclass
 class Inj p a where
   inj :: p -> a
 
@@ -131,4 +148,3 @@ substrate pad mkObject collage =
     extents = Extents
       { extentsW = left pad + extentsW e + right pad,
         extentsH = top pad + extentsH e + bottom pad }
-
