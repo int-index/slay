@@ -3,6 +3,7 @@ module Slay.Prim
   , FontWeight(..)
   , Font(..)
   , Curvature(..)
+  , Direction(..)
   , PrimRect(..)
   , PrimText(..)
   , PrimCurve(..)
@@ -67,11 +68,18 @@ deriving instance (Show (g (Maybe Natural)), Show (g (Color))) => Show (PrimText
 -- from -1 to 1
 newtype Curvature = Curvature Rational
 
+data Direction =
+  Direction
+    { directionLeftToRight :: Bool,
+      directionTopToBottom :: Bool
+    }
+
 data PrimCurve g =
   PrimCurve
     { curveExtents :: Extents,
       curveCurvature :: g Curvature,
-      curveColor :: g Color
+      curveColor :: g Color,
+      curveDirection :: g Direction
     }
 
 class Inj p a where
@@ -95,8 +103,8 @@ rect background extents = inj (PrimRect extents background)
 text :: Inj (PrimText g) a => Font g -> Text -> g (Maybe Natural) -> a
 text font content cursor = inj (PrimText font content cursor)
 
-curve :: Inj (PrimCurve g) a => g Curvature -> g Color -> Extents -> a
-curve curvature color extents = inj (PrimCurve extents curvature color)
+curve :: Inj (PrimCurve g) a => g Curvature -> g Color -> g Direction -> Extents -> a
+curve curvature color direction extents = inj (PrimCurve extents curvature color direction)
 
 data LRTB a = LRTB
   { left :: a,

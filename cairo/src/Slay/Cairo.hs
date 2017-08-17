@@ -103,21 +103,24 @@ bendPoint :: Curvature -> (Double, Double) -> (Double, Double) -> (Double, Doubl
 bendPoint c (ax, ay) (bx, by) = (bend c ax bx, bend c ay by)
 
 instance RenderElement g (PrimCurve g) where
-  renderElement (PrimCurve extents gcurvature color) getG (Offset x y) = do
-    setSourceColor (getG color)
+  renderElement (PrimCurve extents gcurvature gcolor gdirection) getG (Offset x y) = do
+    setSourceColor (getG gcolor)
     let
-      c = getG gcurvature
+      curvature = getG gcurvature
+      direction = getG gdirection
       Extents (realToFrac -> w) (realToFrac -> h) = extents
       x' = realToFrac x
       y' = realToFrac y
-      p1 = bendPoint c (w/2, 0) (0, h/2)
-      p2 = bendPoint c (w/2, h) (w, h/2)
-      p3 = (w, h)
+      (x1, x2) = if directionLeftToRight direction then (0, w) else (w, 0)
+      (y1, y2) = if directionTopToBottom direction then (0, h) else (h, 0)
+      p1 = bendPoint curvature (w/2, y1) (x1, h/2)
+      p2 = bendPoint curvature (w/2, y2) (x2, h/2)
+      p3 = (x2, y2)
       curveThrough pStart pMid pEnd =
         Cairo.curveTo
           (x' + fst pStart) (y' + snd pStart)
           (x' + fst pMid)   (y' + snd pMid)
           (x' + fst pEnd)   (y' + snd pEnd)
-    Cairo.moveTo (realToFrac x) (realToFrac y)
+    Cairo.moveTo (x' + x1) (y' + y1)
     curveThrough p1 p2 p3
     Cairo.stroke
