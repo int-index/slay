@@ -126,7 +126,7 @@ instance RenderElement g (PrimCurve g) where
     Cairo.arc 20 20 50 0 180
     Cairo.stroke
 
-instance RenderElement g (PrimCircle g) where
-  renderElement (PrimCircle gcx gcy gr gsa gea) getG (Offset x y) = do
-      Cairo.arc  (circleCenterX gcx) (circleCenterY cy) (circleRadius r) (circleStartAngle sa) (circleEndAngle ea)
+instance RenderElement a (PrimCircle a)  where
+  renderElement (PrimCircle cx cy r sa ea) = do
+      Cairo.arc  (ccenterx  cx) (ccentery cy) (cradius r) (cstartangle sa) (cendangle ea)
       Cairo.fill
