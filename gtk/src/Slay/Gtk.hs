@@ -25,6 +25,7 @@ import Slay.Core
 import Slay.Prim
 import Slay.Cairo
 
+
 data PreMatrix = PreMatrix
   { pmScale :: Centi,
     pmRotate :: Integer, -- 1/12
@@ -359,7 +360,7 @@ exampleLayout = mkLayout $ Vis $
       substrate (LRTB 5 5 5 5) (rect $ PhaseColor $ \colorPhase -> rgb colorPhase 130 200) $
       substrate (LRTB 1 1 1 1) (rect $ PhaseConst $ rgb 0 0 0) $
       substrate (LRTB 3 3 3 3) (rect $ PhaseConst $ rgb 255 255 255) $
-      substrate (LRTB 3 3 3 3) (curve (PhaseCurvature Curvature) (PhaseColor $ \colorPhase -> rgb colorPhase 130 200) (PhaseConst (Direction True False))) $
+      substrate (LRTB 3 3 3 3) (curve (PhaseCurvature Curvature) (PhaseColor $ \colorPhase -> rgb colorPhase 130 200) (PhaseConst (Direction True False)) ) $
       text (ubuntuFont 12) msg
         (PhaseCursor $ \cursor c -> if c then Just cursor else Nothing)
     msgboxWithExtents msg =

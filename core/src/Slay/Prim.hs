@@ -7,6 +7,7 @@ module Slay.Prim
   , PrimRect(..)
   , PrimText(..)
   , PrimCurve(..)
+  , PrimCircle(..)
   , LRTB(..)
   , Inj(..)
   , substrate
@@ -84,18 +85,24 @@ data PrimCurve g =
       curveDirection :: g Direction
     }
 
--- | circle point
-type Point = (Float, Float)
--- | circle polygon
-type Polygon = [Point]
+-- | Circle property types
+newtype CircleCenterX = CircleCenterX Double
+newtype CircleCenterY = CircleCenterY Double
+newtype CircleRadius = CircleRadius Double
+newtype CircleStartAngle = CircleStartAngle Double
+newtype CircleEndAngle = CircleEndAngle Double
 
--- | draw a circle
-circle :: Point -> Float -> Polygon
-circle (x,y) r = Prelude.map (\t -> (x + r * cos (t), y + r * sin (t))) [0, 0.2..(2 * pi)]
+-- | circle adt
+data PrimCircle g =
+    PrimCircle
+    {
+      circleCenterX :: g CircleCenterX
+    , circleCenterY :: g CircleCenterY
+    , circleRadius :: g CircleRadius
+    , circleStartAngle :: g CircleStartAngle
+    , circleEndAngle :: g CircleEndAngle
+    }
 
---center  radius
-ball ::  Polygon
-ball = circle (0,0.2) 0.2
 
 
 -- | Inj typeclass
@@ -111,6 +118,7 @@ instance Inj p a => Inj p (Maybe a) where
 instance (View s e a, Inj p e) => Inj p (Collage s a) where
   inj = collageSingleton . inj
 
+
 rgb :: Inj Color a => Word8 -> Word8 -> Word8 -> a
 rgb r g b = inj (RGB r g b)
 
@@ -122,6 +130,11 @@ text font content cursor = inj (PrimText font content cursor)
 
 curve :: Inj (PrimCurve g) a => g Curvature -> g Color -> g Direction -> Extents -> a
 curve curvature color direction extents = inj (PrimCurve extents curvature color direction)
+
+-- | draw a circle
+makeCircle :: Inj (PrimCircle g) a => g CircleCenterX -> g CircleCenterY -> g CircleRadius -> g CircleStartAngle -> g CircleEndAngle -> a
+makeCircle cx cy r sa ea = inj (PrimCircle cx cy r sa ea)
+
 
 data LRTB a = LRTB
   { left :: a,

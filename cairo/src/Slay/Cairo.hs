@@ -123,4 +123,10 @@ instance RenderElement g (PrimCurve g) where
           (x' + fst pEnd)   (y' + snd pEnd)
     Cairo.moveTo (x' + x1) (y' + y1)
     curveThrough p1 p2 p3
+    Cairo.arc 20 20 50 0 180
     Cairo.stroke
+
+instance RenderElement g (PrimCircle g) where
+  renderElement (PrimCircle gcx gcy gr gsa gea) getG (Offset x y) = do
+      Cairo.arc  (circleCenterX gcx) (circleCenterY cy) (circleRadius r) (circleStartAngle sa) (circleEndAngle ea)
+      Cairo.fill
