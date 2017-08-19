@@ -8,11 +8,6 @@ module Slay.Prim
   , PrimText(..)
   , PrimCurve(..)
   , PrimCircle(..)
-  , CircleCenterX(..)
-  , CircleCenterY(..)
-  , CircleRadius(..)
-  , CircleStartAngle(..)
-  , CircleEndAngle(..)
   , LRTB(..)
   , Inj(..)
   , substrate
@@ -20,6 +15,7 @@ module Slay.Prim
   , rect
   , text
   , curve
+  , circle
   ) where
 
 import Data.Word
@@ -90,23 +86,15 @@ data PrimCurve g =
       curveDirection :: g Direction
     }
 
--- | Circle property types
-newtype CircleCenterX = CircleCenterX { ccenterx :: Double }
-newtype CircleCenterY = CircleCenterY { ccentery :: Double }
-newtype CircleRadius = CircleRadius { cradius :: Double }
-newtype CircleStartAngle = CircleStartAngle { cstartangle :: Double }
-newtype CircleEndAngle = CircleEndAngle { cendangle :: Double }
 
 -- | circle adt
-data PrimCircle =
-    PrimCircle
-    {
-      circleCenterX :: CircleCenterX
-    , circleCenterY :: CircleCenterY
-    , circleRadius :: CircleRadius
-    , circleStartAngle :: CircleStartAngle
-    , circleEndAngle :: CircleEndAngle
-    }
+data PrimCircle g = PrimCircle
+    { circleCenterX :: Double
+    , circleCenterY :: Double
+    , circleRadius :: Double
+    , circleStartAngle :: Double
+    , circleEndAngle :: Double
+    } deriving (Functor)
 
 
 
@@ -137,8 +125,8 @@ curve :: Inj (PrimCurve g) a => g Curvature -> g Color -> g Direction -> Extents
 curve curvature color direction extents = inj (PrimCurve extents curvature color direction)
 
 -- | draw a circle
-makeCircle ::  CircleCenterX ->  CircleCenterY -> CircleRadius -> CircleStartAngle -> CircleEndAngle -> PrimCircle
-makeCircle cx cy r sa ea = inj (PrimCircle cx cy r sa ea)
+circle ::  Double -> Double -> Double -> Double -> Double -> PrimCircle a
+circle a b c d e  =  PrimCircle a b c d e
 
 
 data LRTB a = LRTB

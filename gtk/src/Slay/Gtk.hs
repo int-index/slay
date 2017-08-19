@@ -333,8 +333,7 @@ setBackground background = do
     setSourceColor background
     Cairo.fill
 
-data El = ElRect (PrimRect WithPhase) | ElText (PrimText WithPhase) | ElCurve (PrimCurve WithPhase)
-
+data El = ElRect (PrimRect WithPhase) | ElText (PrimText WithPhase) | ElCurve (PrimCurve WithPhase) | ElCircle (PrimCircle WithPhase)
 withExtents :: Cairo.Matrix -> El -> (Extents, SomeRenderElement WithPhase)
 withExtents matrix = \case
   ElRect primRect -> (rectExtents primRect, SomeRenderElement primRect)
@@ -342,7 +341,7 @@ withExtents matrix = \case
     let pangoText = primTextPango matrix primText
     in (ptextExtents pangoText, SomeRenderElement pangoText)
   ElCurve primCurve -> (curveExtents primCurve, SomeRenderElement primCurve)
-
+  ElCircle circle -> (undefined, SomeRenderElement circle)
 ubuntuFont :: Centi -> Font WithPhase
 ubuntuFont size = Font "Ubuntu" size (PhaseConst (RGB 0 0 0)) FontWeightNormal
 
@@ -352,6 +351,7 @@ newtype Vis a = Vis (Text -> (a, Extents), Word8 -> Color)
 exampleLayout :: Layout Vis El
 exampleLayout = mkLayout $ Vis $
   let
+    crcl = circle (20 :: Double) (20 :: Double)  (50 :: Double) (0 :: Double)  (180 :: Double)
     background colorPhase = RGB
       (colorPhase `div` 10)
       (colorPhase `div` 10)
@@ -392,3 +392,6 @@ instance Inj (PrimText WithPhase) El where
 
 instance Inj (PrimCurve WithPhase) El where
   inj = ElCurve
+
+instance Inj (PrimCircle WithPhase) El where
+  inj = ElCircle
