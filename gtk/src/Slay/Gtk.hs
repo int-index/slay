@@ -334,6 +334,7 @@ setBackground background = do
     Cairo.fill
 
 data El = ElRect (PrimRect WithPhase) | ElText (PrimText WithPhase) | ElCurve (PrimCurve WithPhase) | ElCircle (PrimCircle WithPhase)
+
 withExtents :: Cairo.Matrix -> El -> (Extents, SomeRenderElement WithPhase)
 withExtents matrix = \case
   ElRect primRect -> (rectExtents primRect, SomeRenderElement primRect)
@@ -341,7 +342,8 @@ withExtents matrix = \case
     let pangoText = primTextPango matrix primText
     in (ptextExtents pangoText, SomeRenderElement pangoText)
   ElCurve primCurve -> (curveExtents primCurve, SomeRenderElement primCurve)
-  ElCircle circle -> (undefined, SomeRenderElement circle)
+  ElCircle circle -> (Extents (2 * (fromInteger . round $ circleRadius circle)) (2 * (fromInteger . round $ circleRadius circle)), SomeRenderElement circle)
+
 ubuntuFont :: Centi -> Font WithPhase
 ubuntuFont size = Font "Ubuntu" size (PhaseConst (RGB 0 0 0)) FontWeightNormal
 
