@@ -88,13 +88,14 @@ data PrimCurve g =
 
 
 -- | circle adt
-data PrimCircle g = PrimCircle
-    { circleCenterX :: Double
+data PrimCircle g = Circle
+    { circleColor :: g (Maybe Color)
+    , circleCenterX :: Double
     , circleCenterY :: Double
     , circleRadius :: Double
     , circleStartAngle :: Double
     , circleEndAngle :: Double
-    } deriving (Functor)
+    }
 
 
 
@@ -125,9 +126,11 @@ curve :: Inj (PrimCurve g) a => g Curvature -> g Color -> g Direction -> Extents
 curve curvature color direction extents = inj (PrimCurve extents curvature color direction)
 
 -- | draw a circle
-circle ::  Double -> Double -> Double -> Double -> Double -> PrimCircle a
-circle a b c d e  =  PrimCircle a b c d e
+-- circle :: Inj (PrimCircle g) a  Double -> Double -> Double -> Double -> Double -> PrimCircle a
+-- circle a b c d e  =  PrimCircle a b c d e
 
+circle :: Inj (PrimCircle g) a => g (Maybe Color)  -> Double -> Double -> Double -> Double -> Double ->  a
+circle color a b c d e = inj (Circle color a b c d e)
 
 data LRTB a = LRTB
   { left :: a,

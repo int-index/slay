@@ -126,6 +126,6 @@ instance RenderElement g (PrimCurve g) where
     Cairo.stroke
 
 instance RenderElement g (PrimCircle g)   where
-  renderElement (PrimCircle a b c d e) getG (Offset x y) = do
+  renderElement (Circle cc a b c d e) getG (Offset x y) = do
       Cairo.arc   a b c d e
       Cairo.fill

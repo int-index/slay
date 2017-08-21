@@ -342,7 +342,7 @@ withExtents matrix = \case
     let pangoText = primTextPango matrix primText
     in (ptextExtents pangoText, SomeRenderElement pangoText)
   ElCurve primCurve -> (curveExtents primCurve, SomeRenderElement primCurve)
-  ElCircle circle -> (Extents (2 * (fromInteger . round $ circleRadius circle)) (2 * (fromInteger . round $ circleRadius circle)), SomeRenderElement circle)
+  ElCircle circle -> (makeCircleExtents circle, SomeRenderElement circle)
 
 ubuntuFont :: Centi -> Font WithPhase
 ubuntuFont size = Font "Ubuntu" size (PhaseConst (RGB 0 0 0)) FontWeightNormal
@@ -353,7 +353,6 @@ newtype Vis a = Vis (Text -> (a, Extents), Word8 -> Color)
 exampleLayout :: Layout Vis El
 exampleLayout = mkLayout $ Vis $
   let
-    crcl = circle (20 :: Double) (20 :: Double)  (50 :: Double) (0 :: Double)  (180 :: Double)
     background colorPhase = RGB
       (colorPhase `div` 10)
       (colorPhase `div` 10)
@@ -365,10 +364,17 @@ exampleLayout = mkLayout $ Vis $
       substrate (LRTB 3 3 3 3) (curve (PhaseCurvature Curvature) (PhaseColor $ \colorPhase -> rgb colorPhase 130 200) (PhaseConst (Direction True False)) ) $
       text (ubuntuFont 12) msg
         (PhaseCursor $ \cursor c -> if c then Just cursor else Nothing)
+      -- substrate (LRTB 3 3 3 3) makeCircle
     msgboxWithExtents msg =
       let msgbox = mkMsgbox msg
       in (msgbox, collageExtents msgbox)
   in (msgboxWithExtents, background)
+
+-- makeCircle :: PrimCircle a
+-- makeCircle  = circle (Just $ RGB 200 200 200) (20 :: Double) (20 :: Double) (20 :: Double) (20 :: Double) (20 :: Double)
+
+makeCircleExtents :: PrimCircle g -> Extents
+makeCircleExtents crcl = Extents  (2 * (fromInteger . round $ circleRadius crcl)) (2 * (fromInteger . round $ circleRadius crcl))
 
 getExcess :: Integral n => n -> n -> (n, n)
 getExcess vacant actual
