@@ -87,8 +87,6 @@ data PrimCurve g =
 
 data PrimCircle g = Circle
     { circleColor :: g Color
-    , circleCenterX :: Double -- X position of the center of the arc
-    , circleCenterY :: Double -- Y position of the center of the arc
     , circleRadius :: Double
     }
 
@@ -118,8 +116,8 @@ text font content cursor = inj (PrimText font content cursor)
 curve :: Inj (PrimCurve g) a => g Curvature -> g Color -> g Direction -> Extents -> a
 curve curvature color direction extents = inj (PrimCurve extents curvature color direction)
 
-circle :: Inj (PrimCircle g) a => g Color -> Double -> Double -> Double ->  a
-circle color a b c = inj (Circle color a b c)
+circle :: Inj (PrimCircle g) a => g Color -> Double ->  a
+circle color radius  = inj (Circle color radius)
 
 data LRTB a = LRTB
   { left :: a,

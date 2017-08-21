@@ -342,6 +342,7 @@ withExtents matrix = \case
     let pangoText = primTextPango matrix primText
     in (ptextExtents pangoText, SomeRenderElement pangoText)
   ElCurve primCurve -> (curveExtents primCurve, SomeRenderElement primCurve)
+  ElCircle circle -> (makeCircleExtents circle, SomeRenderElement circle)
 
 ubuntuFont :: Centi -> Font WithPhase
 ubuntuFont size = Font "Ubuntu" size (PhaseConst (RGB 0 0 0)) FontWeightNormal
@@ -370,7 +371,7 @@ exampleLayout = mkLayout $ Vis $
   in (msgboxWithExtents, background)
 
 makeCircle :: El
-makeCircle = circle (PhaseConst $ rgb 205 265 215) (20 :: Double) (20 :: Double) (20 :: Double)
+makeCircle = circle (PhaseConst $ rgb 205 265 215) (15 :: Double)
 
 makeCircleExtents :: PrimCircle g -> Extents
 makeCircleExtents crcl = Extents  (2 * (fromInteger . round $ circleRadius crcl)) (2 * (fromInteger . round $ circleRadius crcl))
