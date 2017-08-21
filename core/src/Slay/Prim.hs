@@ -22,7 +22,6 @@ import Data.Word
 import Data.Fixed
 import Data.Text
 import Numeric.Natural
-
 import Slay.Core
 
 data Color =
@@ -70,14 +69,13 @@ deriving instance (Show (g (Maybe Natural)), Show (g (Color))) => Show (PrimText
 -- from -1 to 1
 newtype Curvature = Curvature Rational
 
--- | curve direction
 data Direction =
   Direction
     { directionLeftToRight :: Bool,
       directionTopToBottom :: Bool
     }
 
--- | adt for curves
+
 data PrimCurve g =
   PrimCurve
     { curveExtents :: Extents,
@@ -87,17 +85,14 @@ data PrimCurve g =
     }
 
 
--- | circle adt
 data PrimCircle g = Circle
-    { circleColor :: g (Maybe Color)
-    , circleCenterX :: Double
-    , circleCenterY :: Double
+    { circleColor :: g Color
+    , circleCenterX :: Double -- X position of the center of the arc
+    , circleCenterY :: Double -- Y position of the center of the arc
     , circleRadius :: Double
     }
 
 
-
--- | Inj typeclass
 class Inj p a where
   inj :: p -> a
 
@@ -123,7 +118,7 @@ text font content cursor = inj (PrimText font content cursor)
 curve :: Inj (PrimCurve g) a => g Curvature -> g Color -> g Direction -> Extents -> a
 curve curvature color direction extents = inj (PrimCurve extents curvature color direction)
 
-circle :: Inj (PrimCircle g) a => g (Maybe Color) -> Double -> Double -> Double ->  a
+circle :: Inj (PrimCircle g) a => g Color -> Double -> Double -> Double ->  a
 circle color a b c = inj (Circle color a b c)
 
 data LRTB a = LRTB

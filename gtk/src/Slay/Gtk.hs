@@ -342,7 +342,6 @@ withExtents matrix = \case
     let pangoText = primTextPango matrix primText
     in (ptextExtents pangoText, SomeRenderElement pangoText)
   ElCurve primCurve -> (curveExtents primCurve, SomeRenderElement primCurve)
-  ElCircle circle -> (makeCircleExtents circle, SomeRenderElement circle)
 
 ubuntuFont :: Centi -> Font WithPhase
 ubuntuFont size = Font "Ubuntu" size (PhaseConst (RGB 0 0 0)) FontWeightNormal
