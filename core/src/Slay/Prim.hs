@@ -93,8 +93,6 @@ data PrimCircle g = Circle
     , circleCenterX :: Double
     , circleCenterY :: Double
     , circleRadius :: Double
-    , circleStartAngle :: Double
-    , circleEndAngle :: Double
     }
 
 
@@ -125,12 +123,8 @@ text font content cursor = inj (PrimText font content cursor)
 curve :: Inj (PrimCurve g) a => g Curvature -> g Color -> g Direction -> Extents -> a
 curve curvature color direction extents = inj (PrimCurve extents curvature color direction)
 
--- | draw a circle
--- circle :: Inj (PrimCircle g) a  Double -> Double -> Double -> Double -> Double -> PrimCircle a
--- circle a b c d e  =  PrimCircle a b c d e
-
-circle :: Inj (PrimCircle g) a => g (Maybe Color)  -> Double -> Double -> Double -> Double -> Double ->  a
-circle color a b c d e = inj (Circle color a b c d e)
+circle :: Inj (PrimCircle g) a => g (Maybe Color) -> Double -> Double -> Double ->  a
+circle color a b c = inj (Circle color a b c)
 
 data LRTB a = LRTB
   { left :: a,

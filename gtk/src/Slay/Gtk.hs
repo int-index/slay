@@ -362,16 +362,16 @@ exampleLayout = mkLayout $ Vis $
       substrate (LRTB 1 1 1 1) (rect $ PhaseConst $ rgb 0 0 0) $
       substrate (LRTB 3 3 3 3) (rect $ PhaseConst $ rgb 255 255 255) $
       substrate (LRTB 3 3 3 3) (curve (PhaseCurvature Curvature) (PhaseColor $ \colorPhase -> rgb colorPhase 130 200) (PhaseConst (Direction True False)) ) $
+      substrate (LRTB 0 0 0 0) (\_ -> makeCircle) $
       text (ubuntuFont 12) msg
         (PhaseCursor $ \cursor c -> if c then Just cursor else Nothing)
-      -- substrate (LRTB 3 3 3 3) makeCircle
     msgboxWithExtents msg =
       let msgbox = mkMsgbox msg
       in (msgbox, collageExtents msgbox)
   in (msgboxWithExtents, background)
 
--- makeCircle :: PrimCircle a
--- makeCircle  = circle (Just $ RGB 200 200 200) (20 :: Double) (20 :: Double) (20 :: Double) (20 :: Double) (20 :: Double)
+makeCircle :: El
+makeCircle = circle (PhaseConst $ rgb 205 265 215) (20 :: Double) (20 :: Double) (20 :: Double)
 
 makeCircleExtents :: PrimCircle g -> Extents
 makeCircleExtents crcl = Extents  (2 * (fromInteger . round $ circleRadius crcl)) (2 * (fromInteger . round $ circleRadius crcl))
