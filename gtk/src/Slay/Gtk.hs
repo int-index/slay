@@ -25,6 +25,7 @@ import Slay.Core
 import Slay.Prim
 import Slay.Cairo
 
+
 data PreMatrix = PreMatrix
   { pmScale :: Centi,
     pmRotate :: Integer, -- 1/12
@@ -332,7 +333,7 @@ setBackground background = do
     setSourceColor background
     Cairo.fill
 
-data El = ElRect (PrimRect WithPhase) | ElText (PrimText WithPhase) | ElCurve (PrimCurve WithPhase)
+data El = ElRect (PrimRect WithPhase) | ElText (PrimText WithPhase) | ElCurve (PrimCurve WithPhase) | ElCircle (PrimCircle WithPhase)
 
 withExtents :: Cairo.Matrix -> El -> (Extents, SomeRenderElement WithPhase)
 withExtents matrix = \case
@@ -341,6 +342,7 @@ withExtents matrix = \case
     let pangoText = primTextPango matrix primText
     in (ptextExtents pangoText, SomeRenderElement pangoText)
   ElCurve primCurve -> (curveExtents primCurve, SomeRenderElement primCurve)
+  ElCircle circ -> (circleExtents circ, SomeRenderElement circ)
 
 ubuntuFont :: Centi -> Font WithPhase
 ubuntuFont size = Font "Ubuntu" size (PhaseConst (RGB 0 0 0)) FontWeightNormal
@@ -359,13 +361,18 @@ exampleLayout = mkLayout $ Vis $
       substrate (LRTB 5 5 5 5) (rect $ PhaseColor $ \colorPhase -> rgb colorPhase 130 200) $
       substrate (LRTB 1 1 1 1) (rect $ PhaseConst $ rgb 0 0 0) $
       substrate (LRTB 3 3 3 3) (rect $ PhaseConst $ rgb 255 255 255) $
-      substrate (LRTB 3 3 3 3) (curve (PhaseCurvature Curvature) (PhaseColor $ \colorPhase -> rgb colorPhase 130 200) (PhaseConst (Direction True False))) $
-      text (ubuntuFont 12) msg
-        (PhaseCursor $ \cursor c -> if c then Just cursor else Nothing)
+      substrate (LRTB 3 3 3 3) (curve (PhaseCurvature Curvature) (PhaseColor $ \colorPhase -> rgb colorPhase 130 200) (PhaseConst (Direction True False)) ) $
+      collageCompose (Offset 200 0)
+        (substrate (LRTB 0 0 0 0) (rect $ PhaseConst $ rgb 255 0 0) $ collageSingleton makeCircle)
+        (text (ubuntuFont 12) msg
+        (PhaseCursor $ \cursor c -> if c then Just cursor else Nothing))
     msgboxWithExtents msg =
       let msgbox = mkMsgbox msg
       in (msgbox, collageExtents msgbox)
   in (msgboxWithExtents, background)
+
+makeCircle :: El
+makeCircle = circle (PhaseConst $ rgb 205 255 215) 15
 
 getExcess :: Integral n => n -> n -> (n, n)
 getExcess vacant actual
@@ -391,3 +398,6 @@ instance Inj (PrimText WithPhase) El where
 
 instance Inj (PrimCurve WithPhase) El where
   inj = ElCurve
+
+instance Inj (PrimCircle WithPhase) El where
+  inj = ElCircle

@@ -7,6 +7,7 @@ module Slay.Prim
   , PrimRect(..)
   , PrimText(..)
   , PrimCurve(..)
+  , PrimCircle(..)
   , LRTB(..)
   , Inj(..)
   , substrate
@@ -14,13 +15,14 @@ module Slay.Prim
   , rect
   , text
   , curve
+  , circle
+  , circleExtents
   ) where
 
 import Data.Word
 import Data.Fixed
 import Data.Text
 import Numeric.Natural
-
 import Slay.Core
 
 data Color =
@@ -74,6 +76,7 @@ data Direction =
       directionTopToBottom :: Bool
     }
 
+
 data PrimCurve g =
   PrimCurve
     { curveExtents :: Extents,
@@ -81,6 +84,13 @@ data PrimCurve g =
       curveColor :: g Color,
       curveDirection :: g Direction
     }
+
+
+data PrimCircle g = PrimCircle
+    { circleColor :: g Color
+    , circleRadius :: Natural
+    }
+
 
 class Inj p a where
   inj :: p -> a
@@ -94,6 +104,7 @@ instance Inj p a => Inj p (Maybe a) where
 instance (View s e a, Inj p e) => Inj p (Collage s a) where
   inj = collageSingleton . inj
 
+
 rgb :: Inj Color a => Word8 -> Word8 -> Word8 -> a
 rgb r g b = inj (RGB r g b)
 
@@ -105,6 +116,12 @@ text font content cursor = inj (PrimText font content cursor)
 
 curve :: Inj (PrimCurve g) a => g Curvature -> g Color -> g Direction -> Extents -> a
 curve curvature color direction extents = inj (PrimCurve extents curvature color direction)
+
+circle :: Inj (PrimCircle g) a => g Color -> Natural ->  a
+circle color radius  = inj (PrimCircle color radius)
+
+circleExtents :: PrimCircle g -> Extents
+circleExtents c = Extents (2 * r) (2 * r) where r = circleRadius c
 
 data LRTB a = LRTB
   { left :: a,
@@ -131,4 +148,3 @@ substrate pad mkObject collage =
     extents = Extents
       { extentsW = left pad + extentsW e + right pad,
         extentsH = top pad + extentsH e + bottom pad }
-
