@@ -126,7 +126,7 @@ instance RenderElement g (PrimCurve g) where
     Cairo.stroke
 
 instance RenderElement g (PrimCircle g)   where
-  renderElement (Circle cc c) getG (Offset x y) = do
+  renderElement (PrimCircle cc c) getG (Offset x y) = do
       setSourceColor $ getG cc
       let dc = realToFrac c
       Cairo.arc (dc + fromInteger x) (dc + fromInteger y) dc 0 180

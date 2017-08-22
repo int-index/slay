@@ -86,7 +86,7 @@ data PrimCurve g =
     }
 
 
-data PrimCircle g = Circle
+data PrimCircle g = PrimCircle
     { circleColor :: g Color
     , circleRadius :: Natural
     }
@@ -118,7 +118,7 @@ curve :: Inj (PrimCurve g) a => g Curvature -> g Color -> g Direction -> Extents
 curve curvature color direction extents = inj (PrimCurve extents curvature color direction)
 
 circle :: Inj (PrimCircle g) a => g Color -> Natural ->  a
-circle color radius  = inj (Circle color radius)
+circle color radius  = inj (PrimCircle color radius)
 
 circleExtents :: PrimCircle g -> Extents
 circleExtents c = Extents (2 * r) (2 * r) where r = circleRadius c
