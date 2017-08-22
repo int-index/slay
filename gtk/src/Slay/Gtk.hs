@@ -342,7 +342,7 @@ withExtents matrix = \case
     let pangoText = primTextPango matrix primText
     in (ptextExtents pangoText, SomeRenderElement pangoText)
   ElCurve primCurve -> (curveExtents primCurve, SomeRenderElement primCurve)
-  ElCircle circ -> (makeCircleExtents circ, SomeRenderElement circ)
+  ElCircle circ -> (circleExtents circ, SomeRenderElement circ)
 
 ubuntuFont :: Centi -> Font WithPhase
 ubuntuFont size = Font "Ubuntu" size (PhaseConst (RGB 0 0 0)) FontWeightNormal
@@ -364,7 +364,7 @@ exampleLayout = mkLayout $ Vis $
       substrate (LRTB 3 3 3 3) (curve (PhaseCurvature Curvature) (PhaseColor $ \colorPhase -> rgb colorPhase 130 200) (PhaseConst (Direction True False)) ) $
       collageCompose (Offset 200 0)
         (substrate (LRTB 0 0 0 0) (rect $ PhaseConst $ rgb 255 0 0) $ collageSingleton makeCircle)
-	    (text (ubuntuFont 12) msg
+        (text (ubuntuFont 12) msg
         (PhaseCursor $ \cursor c -> if c then Just cursor else Nothing))
     msgboxWithExtents msg =
       let msgbox = mkMsgbox msg
@@ -372,10 +372,7 @@ exampleLayout = mkLayout $ Vis $
   in (msgboxWithExtents, background)
 
 makeCircle :: El
-makeCircle = circle (PhaseConst $ rgb 205 255 215) (15 :: Double)
-
-makeCircleExtents :: PrimCircle g -> Extents
-makeCircleExtents crcl = Extents  (2 * (fromInteger . round $ circleRadius crcl)) (2 * (fromInteger . round $ circleRadius crcl))
+makeCircle = circle (PhaseConst $ rgb 205 255 215) 15
 
 getExcess :: Integral n => n -> n -> (n, n)
 getExcess vacant actual

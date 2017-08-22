@@ -16,6 +16,7 @@ module Slay.Prim
   , text
   , curve
   , circle
+  , circleExtents
   ) where
 
 import Data.Word
@@ -87,7 +88,7 @@ data PrimCurve g =
 
 data PrimCircle g = Circle
     { circleColor :: g Color
-    , circleRadius :: Double
+    , circleRadius :: Natural
     }
 
 
@@ -116,8 +117,11 @@ text font content cursor = inj (PrimText font content cursor)
 curve :: Inj (PrimCurve g) a => g Curvature -> g Color -> g Direction -> Extents -> a
 curve curvature color direction extents = inj (PrimCurve extents curvature color direction)
 
-circle :: Inj (PrimCircle g) a => g Color -> Double ->  a
+circle :: Inj (PrimCircle g) a => g Color -> Natural ->  a
 circle color radius  = inj (Circle color radius)
+
+circleExtents :: PrimCircle g -> Extents
+circleExtents c = Extents (2 * r) (2 * r) where r = circleRadius c
 
 data LRTB a = LRTB
   { left :: a,
