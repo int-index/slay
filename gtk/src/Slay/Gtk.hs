@@ -369,7 +369,7 @@ exampleLayout = mkLayout $ Vis $
       substrate (LRTB 5 5 5 5) (rect $ PhaseColor $ \colorPhase -> rgb colorPhase 130 200) $
       substrate (LRTB 1 1 1 1) (rect $ PhaseConst $ rgb 0 0 0) $
       substrate (LRTB 3 3 3 3) (rect $ PhaseConst $ rgb 255 255 255) $
-      substrate (LRTB 3 3 3 3) (curve (PhaseCurvature Curvature) (PhaseColor $ \colorPhase -> rgb colorPhase 130 200) (PhaseConst (Direction True False)) ) $
+      substrate (LRTB 3 3 3 3) (curve (PhaseCurvature Curvature) (PhaseColor $ \colorPhase -> rgb colorPhase 130 200) (PhaseConst (Direction True False)) ([(2 :: Natural), (3 :: Natural), (3 :: Natural) , (5 :: Natural)]) (2 :: Natural) ) $
       collageCompose (Offset 200 0)
         (substrate (LRTB 0 0 0 0) (rect $ PhaseConst $ rgb 255 0 0) $ collageSingleton makeCircle)
         (text (ubuntuFont 12) msg
