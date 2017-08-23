@@ -75,7 +75,7 @@ primTextPango matrix (PrimText font content cursor) = unsafePerformIO $ do
   pangoLayout `Pango.layoutSetFontDescription` Just pangoFont
   (_, Pango.PangoRectangle _ _ w h) <-
     Pango.layoutGetExtents pangoLayout
-  let extents = Extents (ceiling w) (ceiling h)
+  let extents = Extents (fromInteger $ ceiling w) (fromInteger $ ceiling h)
   return $ PangoText extents (fontColor font) cursor pangoLayout
 {-# NOINLINE primTextPango #-}
 
@@ -129,6 +129,6 @@ instance RenderElement g (PrimCircle g)   where
   renderElement (PrimCircle cc c) getG (Offset x y) = do
       setSourceColor $ getG cc
       let dc = realToFrac c
-      Cairo.arc (dc + fromInteger x) (dc + fromInteger y) dc 0 180
+      Cairo.arc (dc + realToFrac x) (dc + realToFrac y) dc 0 180
       Cairo.fill
       Cairo.stroke

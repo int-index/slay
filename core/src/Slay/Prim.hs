@@ -23,6 +23,8 @@ import Data.Word
 import Data.Fixed
 import Data.Text
 import Numeric.Natural
+
+import Slay.Number
 import Slay.Core
 
 data Color =
@@ -88,7 +90,7 @@ data PrimCurve g =
 
 data PrimCircle g = PrimCircle
     { circleColor :: g Color
-    , circleRadius :: Natural
+    , circleRadius :: Unsigned
     }
 
 
@@ -117,8 +119,8 @@ text font content cursor = inj (PrimText font content cursor)
 curve :: Inj (PrimCurve g) a => g Curvature -> g Color -> g Direction -> Extents -> a
 curve curvature color direction extents = inj (PrimCurve extents curvature color direction)
 
-circle :: Inj (PrimCircle g) a => g Color -> Natural ->  a
-circle color radius  = inj (PrimCircle color radius)
+circle :: Inj (PrimCircle g) a => g Color -> Unsigned -> a
+circle color radius = inj (PrimCircle color radius)
 
 circleExtents :: PrimCircle g -> Extents
 circleExtents c = Extents (2 * r) (2 * r) where r = circleRadius c
@@ -132,15 +134,15 @@ data LRTB a = LRTB
 
 substrate ::
   View s e a =>
-  LRTB Natural ->
+  LRTB Unsigned ->
   (Extents -> e) ->
   Collage s a ->
   Collage s a
 substrate pad mkObject collage =
   collageCompose
     Offset
-      { offsetX = toInteger $ left pad,
-        offsetY = toInteger $ top pad }
+      { offsetX = toSigned $ left pad,
+        offsetY = toSigned $ top pad }
     (collageSingleton $ mkObject extents)
     collage
   where

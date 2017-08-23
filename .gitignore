@@ -3,6 +3,7 @@ dist
 dist-newstyle
 .cabal-sandbox/
 cabal.sandbox.config
+cabal.project.local
 
 # Stack
 .stack-work
