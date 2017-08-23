@@ -52,14 +52,16 @@ data WithPhase x =
   PhaseConst x |
   PhaseCursor (Natural -> Bool -> x) |
   PhaseColor (Word8 -> x) |
-  PhaseCurvature (Rational -> x)
+  PhaseCurvature (Rational -> x) |
+  PhaseWidth (Unsigned -> x)
 
-withPhase :: Natural -> Bool -> Word8 -> Rational -> WithPhase x -> x
-withPhase cursor cursorPhase colorPhase curvaturePhase = \case
+withPhase :: Natural -> Bool -> Word8 -> Rational -> Unsigned -> WithPhase x -> x
+withPhase cursor cursorPhase colorPhase curvaturePhase widthPhase = \case
   PhaseConst x -> x
   PhaseCursor mkX -> mkX cursor cursorPhase
   PhaseColor mkX -> mkX colorPhase
   PhaseCurvature mkX -> mkX curvaturePhase
+  PhaseWidth mkX -> mkX widthPhase
 
 type CollageElements = NonEmpty (Offset, SomeRenderElement WithPhase)
 
@@ -124,6 +126,7 @@ example = do
     colorPhase <- liftIO $ readPhaser colorPhaser $ \w -> case divMod w 256 of
       (d, m) -> fromIntegral $ if even d then m else 255 - m
     let curvaturePhase = (toInteger colorPhase % 255) * 2 - 1
+    let widthPhase = unsafeToUnsigned $ (realToFrac colorPhase + 1) / 50
     appState <- liftIO $ readIORef appStateRef
     let
       preMatrix = appStatePreMatrix appState
@@ -142,7 +145,7 @@ example = do
       ofs_l = snap $ getExcess (fst viewport') w / 2
       ofs_t = snap $ getExcess (snd viewport') h / 2
     Cairo.setMatrix (Matrix.translate (ofs_l - vl) (ofs_t - vt) (prepareMatrix2 preMatrix matrix))
-    renderElements (withPhase (appStateCursor appState) cursorPhase colorPhase curvaturePhase) elements
+    renderElements (withPhase (appStateCursor appState) cursorPhase colorPhase curvaturePhase widthPhase) elements
   _ <- Gtk.on drawArea Gtk.keyPressEvent $ do
     keyVal <- Gtk.eventKeyVal
     label <- liftIO $ appStateLabel <$> readIORef appStateRef
@@ -369,7 +372,7 @@ exampleLayout = mkLayout $ Vis $
       substrate (LRTB 5 5 5 5) (rect $ PhaseColor $ \colorPhase -> rgb colorPhase 130 200) $
       substrate (LRTB 1 1 1 1) (rect $ PhaseConst $ rgb 0 0 0) $
       substrate (LRTB 3 3 3 3) (rect $ PhaseConst $ rgb 255 255 255) $
-      substrate (LRTB 3 3 3 3) (curve (PhaseCurvature Curvature) (PhaseColor $ \colorPhase -> rgb colorPhase 130 200) (PhaseConst (Direction True False)) ) $
+      substrate (LRTB 3 3 3 3) (curve (PhaseCurvature Curvature) (PhaseColor $ \colorPhase -> rgb colorPhase 130 200) (PhaseConst (Direction True False)) (PhaseWidth id)) $
       collageCompose (Offset 200 0)
         (substrate (LRTB 0 0 0 0) (rect $ PhaseConst $ rgb 255 0 0) $ collageSingleton makeCircle)
         (text (ubuntuFont 12) msg
