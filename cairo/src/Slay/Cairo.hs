@@ -116,7 +116,7 @@ instance RenderElement g (PrimCurve g) where
           (x + fst pEnd)   (y + snd pEnd)
     Cairo.moveTo (x + x1) (y + y1)
     curveThrough p1 p2 p3
-    Cairo.setDash (map realToFrac dashList) (realToFrac dashStrokeOffset)
+    Cairo.setDash (map toSigned (getG dashList)) dashStrokeOffset
     Cairo.stroke
 
 instance RenderElement g (PrimCircle g)   where
