@@ -24,7 +24,11 @@ library
     text,
     microlens-platform,
     slay-core,
-    slay-cairo
+    slay-cairo,
+    slay-number-integer
+
+  mixins:
+    slay-number-integer (Slay.Number.Integer as Slay.Number)
 
   hs-source-dirs:
     src

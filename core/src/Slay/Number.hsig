@@ -1,0 +1,20 @@
+signature Slay.Number where
+
+data Signed
+
+instance Eq Signed
+instance Ord Signed
+instance Show Signed
+instance Num Signed
+instance Real Signed
+
+data Unsigned
+
+instance Eq Unsigned
+instance Ord Unsigned
+instance Show Unsigned
+instance Num Unsigned
+instance Real Unsigned
+
+unsafeToUnsigned :: Signed -> Unsigned
+toSigned :: Unsigned -> Signed

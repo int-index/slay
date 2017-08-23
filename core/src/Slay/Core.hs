@@ -25,17 +25,18 @@ import qualified Data.List.NonEmpty as NonEmpty
 import Data.Kind
 import Data.Proxy
 import Data.Reflection
-import Numeric.Natural
+
+import Slay.Number
 
 data Offset =
   Offset
-    { offsetX :: Integer,
-      offsetY :: Integer
+    { offsetX :: Signed,
+      offsetY :: Signed
     } deriving (Eq, Ord, Show)
 
 offsetOp ::
-  (Integer -> Integer -> Integer) ->
-  (Offset  -> Offset  -> Offset)
+  (Signed -> Signed -> Signed) ->
+  (Offset -> Offset -> Offset)
 offsetOp (#) o1 o2 =
   Offset
     { offsetX = offsetX o1 # offsetX o2,
@@ -53,16 +54,16 @@ offsetZero :: Offset
 offsetZero = Offset 0 0
 
 unsafeOffsetExtents :: Offset -> Extents
-unsafeOffsetExtents (Offset x y) = Extents (fromInteger x) (fromInteger y)
+unsafeOffsetExtents (Offset x y) = Extents (unsafeToUnsigned x) (unsafeToUnsigned y)
 
 data Extents =
   Extents
-    { extentsW :: Natural,
-      extentsH :: Natural
+    { extentsW :: Unsigned,
+      extentsH :: Unsigned
     } deriving (Eq, Ord, Show)
 
 extentsOp ::
-  (Natural -> Natural -> Natural) ->
+  (Unsigned -> Unsigned -> Unsigned) ->
   (Extents -> Extents -> Extents)
 extentsOp (#) o1 o2 =
   Extents
@@ -74,7 +75,7 @@ extentsAdd = extentsOp (+)
 extentsMax = extentsOp max
 
 extentsOffset :: Extents -> Offset
-extentsOffset (Extents w h) = Offset (toInteger w) (toInteger h)
+extentsOffset (Extents w h) = Offset (toSigned w) (toSigned h)
 
 type View' s e a = Reifies s (e -> (Extents, a))
 
