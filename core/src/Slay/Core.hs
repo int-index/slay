@@ -15,6 +15,7 @@ module Slay.Core
   , hoistLayout
   , mkLayout
   , layoutElements
+  , module Slay.Number
   ) where
 
 import Data.Monoid (Endo(..), (<>))

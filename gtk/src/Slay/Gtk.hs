@@ -21,10 +21,7 @@ import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.Rendering.Cairo.Matrix as Matrix
 import qualified Graphics.Rendering.Cairo as Cairo
 
-import Slay.Core
-import Slay.Prim
 import Slay.Cairo
-
 
 data PreMatrix = PreMatrix
   { pmScale :: Centi,
@@ -32,11 +29,14 @@ data PreMatrix = PreMatrix
     pmOffset :: (Integer, Integer)
   }
 
-makeLensesFor
-  [ ("pmScale", "pmScaleL"),
-    ("pmRotate", "pmRotateL"),
-    ("pmOffset", "pmOffsetL") ]
-  ''PreMatrix
+pmScaleL :: Lens' PreMatrix Centi
+pmScaleL = lens pmScale (\pm x -> pm { pmScale = x })
+
+pmRotateL :: Lens' PreMatrix Integer
+pmRotateL = lens pmRotate (\pm x -> pm { pmRotate = x })
+
+pmOffsetL :: Lens' PreMatrix (Integer, Integer)
+pmOffsetL = lens pmOffset (\pm x -> pm { pmOffset = x })
 
 prepareMatrix1 :: PreMatrix -> Cairo.Matrix
 prepareMatrix1 PreMatrix{..} =
@@ -74,7 +74,17 @@ data AppState = AppState
 appStateMatrix :: AppState -> Cairo.Matrix
 appStateMatrix = prepareMatrix1 . appStatePreMatrix
 
-makeLensesFor [ ("appStateCursor","appStateCursorL") ] ''AppState
+appStateCursorL :: Lens' AppState Natural
+appStateCursorL = lens appStateCursor (\app x -> app { appStateCursor = x })
+
+snap :: Double -> Double
+snap = fromInteger . ceiling
+
+snap' :: Unsigned -> Unsigned
+snap' = unsafeToUnsigned . snap . toSigned
+
+snapExtents :: Extents -> Extents
+snapExtents (Extents w h) = Extents (snap' w) (snap' h)
 
 example :: IO ()
 example = do
@@ -127,12 +137,10 @@ example = do
         Matrix.transformPoint matrix (0, b) :
         Matrix.transformPoint matrix (r, b) : []
         where
-          Extents (fromIntegral -> r) (fromIntegral -> b) = vextents
+          Extents (toSigned -> r) (toSigned -> b) = vextents
       (w, h) = (vr - vl, vb - vt)
-      (realToFrac -> ofs_l, _) =
-        getExcess (floor $ fst viewport' :: Integer) (ceiling w)
-      (realToFrac -> ofs_t, _) =
-        getExcess (floor $ snd viewport' :: Integer) (ceiling h)
+      ofs_l = snap $ getExcess (fst viewport') w / 2
+      ofs_t = snap $ getExcess (snd viewport') h / 2
     Cairo.setMatrix (Matrix.translate (ofs_l - vl) (ofs_t - vt) (prepareMatrix2 preMatrix matrix))
     renderElements (withPhase (appStateCursor appState) cursorPhase colorPhase curvaturePhase) elements
   _ <- Gtk.on drawArea Gtk.keyPressEvent $ do
@@ -329,7 +337,7 @@ setBackground background = do
   (x1, y1, x2, y2) <- Cairo.clipExtents
   let viewport@(w, h) = (x2 - x1, y2 - y1)
   viewport <$ do
-    Cairo.rectangle 0 0 (realToFrac w) (realToFrac h)
+    Cairo.rectangle 0 0 w h
     setSourceColor background
     Cairo.fill
 
@@ -340,7 +348,7 @@ withExtents matrix = \case
   ElRect primRect -> (rectExtents primRect, SomeRenderElement primRect)
   ElText primText ->
     let pangoText = primTextPango matrix primText
-    in (ptextExtents pangoText, SomeRenderElement pangoText)
+    in (snapExtents $ ptextExtents pangoText, SomeRenderElement pangoText)
   ElCurve primCurve -> (curveExtents primCurve, SomeRenderElement primCurve)
   ElCircle circ -> (circleExtents circ, SomeRenderElement circ)
 
@@ -374,15 +382,8 @@ exampleLayout = mkLayout $ Vis $
 makeCircle :: El
 makeCircle = circle (PhaseConst $ rgb 205 255 215) 15
 
-getExcess :: Integral n => n -> n -> (n, n)
-getExcess vacant actual
-  | vacant > actual =
-    let
-      excess = max 0 (vacant - actual)
-      excess1 = excess `quot` 2
-      excess2 = excess - excess1
-    in (excess1, excess2)
-  | otherwise = (0, 0)
+getExcess :: Double -> Double -> Double
+getExcess vacant actual = max 0 (vacant - actual)
 
 boundingBox :: Ord a => NonEmpty (a, a) -> (a, a, a, a)
 boundingBox xs = (l,r,t,b)

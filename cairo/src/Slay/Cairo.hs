@@ -5,6 +5,9 @@ module Slay.Cairo
   , PangoText(..)
   , primTextPango
   , setSourceColor
+  -- re-exported
+  , module Slay.Core
+  , module Slay.Prim
   ) where
 
 import Numeric.Natural
@@ -45,11 +48,7 @@ instance RenderElement g (PrimRect g) where
   renderElement (PrimRect (Extents w h) gmbc) getG (Offset x y) = do
     for_ (getG gmbc) $ \bc -> do
       setSourceColor bc
-      Cairo.rectangle
-        (realToFrac x)
-        (realToFrac y)
-        (realToFrac w)
-        (realToFrac h)
+      Cairo.rectangle x y (toSigned w) (toSigned h)
       Cairo.fill
 
 data PangoText g = PangoText
@@ -75,23 +74,19 @@ primTextPango matrix (PrimText font content cursor) = unsafePerformIO $ do
   pangoLayout `Pango.layoutSetFontDescription` Just pangoFont
   (_, Pango.PangoRectangle _ _ w h) <-
     Pango.layoutGetExtents pangoLayout
-  let extents = Extents (fromInteger $ ceiling w) (fromInteger $ ceiling h)
+  let extents = Extents (unsafeToUnsigned w) (unsafeToUnsigned h)
   return $ PangoText extents (fontColor font) cursor pangoLayout
 {-# NOINLINE primTextPango #-}
 
 instance RenderElement g (PangoText g) where
   renderElement (PangoText _ color gcursor pangoLayout) getG (Offset x y) = do
-    Cairo.moveTo (realToFrac x) (realToFrac y)
+    Cairo.moveTo x y
     setSourceColor (getG color)
     Pango.showLayout pangoLayout
     for_ (getG gcursor) $ \n -> do
       Pango.PangoRectangle gx gy _ gh <-
         Cairo.liftIO $ Pango.layoutIndexToPos pangoLayout (fromIntegral n)
-      Cairo.rectangle
-        (realToFrac x + gx)
-        (realToFrac y + gy)
-        1
-        (realToFrac gh)
+      Cairo.rectangle (x + gx) (y + gy) 1 (gh)
       Cairo.fill
 
 bend :: Curvature -> Double -> Double -> Double
@@ -108,9 +103,7 @@ instance RenderElement g (PrimCurve g) where
     let
       curvature = getG gcurvature
       direction = getG gdirection
-      Extents (realToFrac -> w) (realToFrac -> h) = extents
-      x' = realToFrac x
-      y' = realToFrac y
+      Extents (toSigned -> w) (toSigned -> h) = extents
       (x1, x2) = if directionLeftToRight direction then (0, w) else (w, 0)
       (y1, y2) = if directionTopToBottom direction then (0, h) else (h, 0)
       p1 = bendPoint curvature (w/2, y1) (x1, h/2)
@@ -118,17 +111,16 @@ instance RenderElement g (PrimCurve g) where
       p3 = (x2, y2)
       curveThrough pStart pMid pEnd =
         Cairo.curveTo
-          (x' + fst pStart) (y' + snd pStart)
-          (x' + fst pMid)   (y' + snd pMid)
-          (x' + fst pEnd)   (y' + snd pEnd)
-    Cairo.moveTo (x' + x1) (y' + y1)
+          (x + fst pStart) (y + snd pStart)
+          (x + fst pMid)   (y + snd pMid)
+          (x + fst pEnd)   (y + snd pEnd)
+    Cairo.moveTo (x + x1) (y + y1)
     curveThrough p1 p2 p3
     Cairo.stroke
 
 instance RenderElement g (PrimCircle g)   where
   renderElement (PrimCircle cc c) getG (Offset x y) = do
       setSourceColor $ getG cc
-      let dc = realToFrac c
-      Cairo.arc (dc + realToFrac x) (dc + realToFrac y) dc 0 180
+      Cairo.arc (toSigned c + x) (toSigned c + y) (toSigned c) 0 180
       Cairo.fill
       Cairo.stroke
