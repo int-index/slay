@@ -20,7 +20,11 @@ library
     text,
     cairo,
     pango,
-    slay-core
+    slay-core,
+    slay-number-double
+
+  mixins:
+    slay-number-double (Slay.Number.Double as Slay.Number)
 
   hs-source-dirs:
     src

@@ -23,12 +23,7 @@ library
     transformers,
     text,
     microlens-platform,
-    slay-core,
-    slay-cairo,
-    slay-number-integer
-
-  mixins:
-    slay-number-integer (Slay.Number.Integer as Slay.Number)
+    slay-cairo
 
   hs-source-dirs:
     src
