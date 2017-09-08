@@ -17,7 +17,6 @@ library
 
   exposed-modules:
     Slay.Core
-    Slay.Prim
 
   build-depends:
     base,

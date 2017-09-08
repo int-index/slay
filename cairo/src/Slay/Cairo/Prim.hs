@@ -1,4 +1,4 @@
-module Slay.Prim
+module Slay.Cairo.Prim
   ( Color(..)
   , FontWeight(..)
   , Font(..)
