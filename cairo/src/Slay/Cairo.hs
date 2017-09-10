@@ -7,7 +7,7 @@ module Slay.Cairo
   , setSourceColor
   -- re-exported
   , module Slay.Core
-  , module Slay.Prim
+  , module Slay.Cairo.Prim
   ) where
 
 import Numeric.Natural
@@ -20,7 +20,7 @@ import qualified Graphics.Rendering.Cairo as Cairo
 import qualified Graphics.Rendering.Pango as Pango
 
 import Slay.Core
-import Slay.Prim
+import Slay.Cairo.Prim
 
 setSourceColor :: Color -> Cairo.Render ()
 setSourceColor (RGB r g b) =
