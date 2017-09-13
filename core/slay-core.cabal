@@ -20,8 +20,7 @@ library
 
   build-depends:
     base,
-    reflection,
-    text
+    reflection
 
   hs-source-dirs:
     src

@@ -1,5 +1,12 @@
+{- |
+
+An abstraction over coordinate types.
+
+-}
+
 signature Slay.Number where
 
+-- | Signed numeric type.
 data Signed
 
 instance Eq Signed
@@ -8,6 +15,7 @@ instance Show Signed
 instance Num Signed
 instance Real Signed
 
+-- | Unsigned numeric type.
 data Unsigned
 
 instance Eq Unsigned
@@ -16,5 +24,10 @@ instance Show Unsigned
 instance Num Unsigned
 instance Real Unsigned
 
+-- | Convert the signed representation to the unsigned representation.
+-- Precondition: the input number is non-negative, otherwise the function
+-- throws @`Underflow` :: `ArithException`@.
 unsafeToUnsigned :: Signed -> Unsigned
+
+-- | Convert the unsigned representation to the signed one.
 toSigned :: Unsigned -> Signed

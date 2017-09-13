@@ -103,7 +103,7 @@ instance Inj a a where
 instance Inj p a => Inj p (Maybe a) where
   inj = Just . inj
 
-instance (View s e a, Inj p e) => Inj p (Collage s a) where
+instance (HasView s e a, Inj p e) => Inj p (Collage s a) where
   inj = collageSingleton . inj
 
 
@@ -133,7 +133,7 @@ data LRTB a = LRTB
   } deriving (Eq, Ord, Show)
 
 substrate ::
-  View s e a =>
+  HasView s e a =>
   LRTB Unsigned ->
   (Extents -> e) ->
   Collage s a ->
