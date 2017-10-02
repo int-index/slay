@@ -8,7 +8,7 @@ build-type:
   Simple
 
 cabal-version:
-  >=2
+  >=2.0
 
 library
 
