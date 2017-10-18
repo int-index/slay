@@ -98,7 +98,7 @@ bendPoint :: Curvature -> (Double, Double) -> (Double, Double) -> (Double, Doubl
 bendPoint c (ax, ay) (bx, by) = (bend c ax bx, bend c ay by)
 
 instance RenderElement g (PrimCurve g) where
-  renderElement (PrimCurve extents gcurvature gcolor gdirection) getG (Offset x y) = do
+  renderElement (PrimCurve extents gcurvature gcolor gdirection dashList dashStrokeOffset) getG (Offset x y) = do
     setSourceColor (getG gcolor)
     let
       curvature = getG gcurvature
@@ -116,6 +116,7 @@ instance RenderElement g (PrimCurve g) where
           (x + fst pEnd)   (y + snd pEnd)
     Cairo.moveTo (x + x1) (y + y1)
     curveThrough p1 p2 p3
+    Cairo.setDash (map toSigned (getG dashList)) dashStrokeOffset
     Cairo.stroke
 
 instance RenderElement g (PrimCircle g)   where

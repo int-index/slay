@@ -84,7 +84,9 @@ data PrimCurve g =
     { curveExtents :: Extents,
       curveCurvature :: g Curvature,
       curveColor :: g Color,
-      curveDirection :: g Direction
+      curveDirection :: g Direction,
+      curveDash :: g [Unsigned],
+      curveDashOffset :: Signed
     }
 
 
@@ -116,8 +118,8 @@ rect background extents = inj (PrimRect extents background)
 text :: Inj (PrimText g) a => Font g -> Text -> g (Maybe Natural) -> a
 text font content cursor = inj (PrimText font content cursor)
 
-curve :: Inj (PrimCurve g) a => g Curvature -> g Color -> g Direction -> Extents -> a
-curve curvature color direction extents = inj (PrimCurve extents curvature color direction)
+curve :: Inj (PrimCurve g) a => g Curvature -> g Color -> g Direction -> g [Unsigned] -> Signed -> Extents -> a
+curve curvature color direction dashList dashStrokeOffset extents = inj (PrimCurve extents curvature color direction dashList dashStrokeOffset)
 
 circle :: Inj (PrimCircle g) a => g Color -> Unsigned -> a
 circle color radius = inj (PrimCircle color radius)
