@@ -11,9 +11,15 @@ should be possible, but it's not tested (AppVeyor integration would be welcome).
 
 Using `apt-get`, install the following packages:
 
-* `ghc-8.2.1` (from `ppa:hvr/ghc`)
-* `cabal-install-2.0` (from `ppa:hvr/ghc`)
+* `ghc-8.2.2` (from `ppa:hvr/ghc`)
+* `cabal-install-head` (from `ppa:hvr/ghc`)
 * `libgtk-3-dev`
+
+Specify the compiler path in `cabal.project.local`:
+
+```
+with-compiler: /opt/ghc/8.2.2/bin/ghc
+```
 
 ### macOS
 
@@ -34,17 +40,24 @@ cabal new-build all
 To achieve reproducible builds the versions of Haskell dependencies are
 pinned in the `cabal.project.freeze` file.
 
+Specify additional build options in `cabal.project.local`:
+
+```
+profiling: True
+documentation: True
+```
+
 ### Troubleshooting
 
 Verify that you have the appropriate versions of GHC and Cabal in your `PATH`:
 
 ```
 $ ghc --version
-The Glorious Glasgow Haskell Compilation System, version 8.2.1
+The Glorious Glasgow Haskell Compilation System, version 8.2.2
 
 $ cabal --version
-cabal-install version 2.0.0.0
-compiled using version 2.0.0.2 of the Cabal library 
+cabal-install version 2.1.0.0
+compiled using version 2.1.0.0 of the Cabal library
 ```
 
 Verify that you have the development headers for GTK+ 3 installed:
