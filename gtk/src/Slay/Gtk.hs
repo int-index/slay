@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedLabels #-}
+
 module Slay.Gtk
   ( example
   ) where
@@ -22,31 +23,10 @@ import qualified Graphics.Rendering.Cairo.Matrix as Matrix
 import qualified Graphics.Rendering.Cairo as Cairo
 
 import Slay.Cairo
-
-data PreMatrix = PreMatrix
-  { pmScale :: Centi,
-    pmRotate :: Integer, -- 1/12
-    pmOffset :: (Integer, Integer)
-  }
-
-pmScaleL :: Lens' PreMatrix Centi
-pmScaleL = lens pmScale (\pm x -> pm { pmScale = x })
-
-pmRotateL :: Lens' PreMatrix Integer
-pmRotateL = lens pmRotate (\pm x -> pm { pmRotate = x })
-
-pmOffsetL :: Lens' PreMatrix (Integer, Integer)
-pmOffsetL = lens pmOffset (\pm x -> pm { pmOffset = x })
-
-prepareMatrix1 :: PreMatrix -> Cairo.Matrix
-prepareMatrix1 PreMatrix{..} =
-  Matrix.rotate (pi * realToFrac pmRotate / 12) $
-  Matrix.scale (realToFrac pmScale) (realToFrac pmScale) $
-  Matrix.identity
-
-prepareMatrix2 :: PreMatrix -> Cairo.Matrix -> Cairo.Matrix
-prepareMatrix2 PreMatrix{..} =
-  Matrix.translate (realToFrac $ fst pmOffset) (realToFrac $ snd pmOffset)
+import Slay.Gtk.PreMatrix
+import Slay.Gtk.Phaser
+import Slay.Gtk.KeyCode
+import Slay.Gtk.Util
 
 data WithPhase x =
   PhaseConst x |
@@ -65,28 +45,21 @@ withPhase cursor cursorPhase colorPhase curvaturePhase widthPhase = \case
 
 type CollageElements = NonEmpty (Offset, SomeRenderElement WithPhase)
 
+type CollageElements' = ((CollageElements, Extents), Word8 -> Color)
+
 -- invariant: collageElements = mkElements label
 data AppState = AppState
   { appStateLabel :: Text,
     appStateCursor :: Natural,
-    appStatePreMatrix :: PreMatrix,
-    appStateCollageElements :: ((CollageElements, Extents), Word8 -> Color)
+    appStatePreMatrix :: CachedPreMatrix,
+    appStateCollageElements :: CollageElements'
   }
 
 appStateMatrix :: AppState -> Cairo.Matrix
-appStateMatrix = prepareMatrix1 . appStatePreMatrix
+appStateMatrix = cpmMatrix1 . appStatePreMatrix
 
 appStateCursorL :: Lens' AppState Natural
 appStateCursorL = lens appStateCursor (\app x -> app { appStateCursor = x })
-
-snap :: Double -> Double
-snap = fromInteger . ceiling
-
-snap' :: Unsigned -> Unsigned
-snap' = unsafeToUnsigned . snap . toSigned
-
-snapExtents :: Extents -> Extents
-snapExtents (Extents w h) = Extents (snap' w) (snap' h)
 
 example :: IO ()
 example = do
@@ -105,6 +78,7 @@ example = do
     , Gtk.ScrollMask
     ]
   let
+    mkElements :: Cairo.Matrix -> Text -> CollageElements'
     mkElements matrix label =
       case layoutElements (withExtents matrix) exampleLayout of
         Vis (mkElements', background) -> (mkElements' label, background)
@@ -112,7 +86,7 @@ example = do
     AppState
       { appStateLabel = "Source",
         appStateCursor = 0,
-        appStatePreMatrix = PreMatrix 1 0 (0, 0),
+        appStatePreMatrix = cachedPreMatrix $ PreMatrix 1 0 (0, 0),
         appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this) }
   cursorPhaser <- createPhaser
   colorPhaser <- createPhaser
@@ -129,8 +103,7 @@ example = do
     let widthPhase = unsafeToUnsigned $ (realToFrac colorPhase + 1) / 50
     appState <- liftIO $ readIORef appStateRef
     let
-      preMatrix = appStatePreMatrix appState
-      matrix = prepareMatrix1 preMatrix
+      CachedPreMatrix _ matrix matrix' = appStatePreMatrix appState
       ((elements, vextents), background) = appStateCollageElements appState
     viewport' <- setBackground (background colorPhase)
     let
@@ -144,7 +117,7 @@ example = do
       (w, h) = (vr - vl, vb - vt)
       ofs_l = snap $ getExcess (fst viewport') w / 2
       ofs_t = snap $ getExcess (snd viewport') h / 2
-    Cairo.setMatrix (Matrix.translate (ofs_l - vl) (ofs_t - vt) (prepareMatrix2 preMatrix matrix))
+    Cairo.setMatrix (Matrix.translate (ofs_l - vl) (ofs_t - vt) matrix')
     renderElements (withPhase (appStateCursor appState) cursorPhase colorPhase curvaturePhase widthPhase) elements
   _ <- Gtk.on drawArea Gtk.keyPressEvent $ do
     keyVal <- Gtk.eventKeyVal
@@ -157,15 +130,15 @@ example = do
         | fromIntegral c >= Text.length label = c
         | otherwise = c + 1
     liftIO $ case keyVal of
-      ArrowLeft -> do
+      K_Left -> do
         atomicModifyIORef' appStateRef ((,()) . over appStateCursorL moveCursorLeft)
         resetPhaser cursorPhaser
         return True
-      ArrowRight -> do
+      K_Right -> do
         atomicModifyIORef' appStateRef ((,()) . over appStateCursorL moveCursorRight)
         resetPhaser cursorPhaser
         return True
-      Delete -> do
+      K_Delete -> do
         atomicModifyIORef' appStateRef $ \appState ->
           let
             cursor = appStateCursor appState
@@ -178,7 +151,7 @@ example = do
             (appState', ())
         resetPhaser cursorPhaser
         return True
-      Backspace -> do
+      K_BackSpace -> do
         atomicModifyIORef' appStateRef $ \appState ->
           let
             cursor = appStateCursor appState
@@ -219,12 +192,12 @@ example = do
       Gtk.MiddleButton -> do
         liftIO $ atomicModifyIORef' appStateRef $ \appState ->
           let
-            preMatrix = appStatePreMatrix appState
+            preMatrix = cpmPreMatrix $ appStatePreMatrix appState
             preMatrix' = preMatrix & if Gtk.Control `elem` mods
               then pmScaleL .~ 1
               else pmOffsetL .~ (0, 0)
             appState' = fix $ \this -> appState
-              { appStatePreMatrix = preMatrix',
+              { appStatePreMatrix = cachedPreMatrix preMatrix',
                 appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this)
               }
           in
@@ -240,14 +213,14 @@ example = do
       Gtk.ScrollUp -> do
         liftIO $ atomicModifyIORef' appStateRef $ \appState ->
           let
-            preMatrix = appStatePreMatrix appState
+            preMatrix = cpmPreMatrix $ appStatePreMatrix appState
             appState' = if Gtk.Control `elem` mods
               then fix $ \this -> appState
-                { appStatePreMatrix = preMatrix & pmScaleL %~ (+0.15),
+                { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmScaleL %~ (+0.15),
                   appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this)
                 }
               else appState
-                { appStatePreMatrix = preMatrix & pmOffsetL . _2 %~ (+5)
+                { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmOffsetL . _2 %~ (+5)
                 }
           in
             (appState', ())
@@ -255,14 +228,14 @@ example = do
       Gtk.ScrollDown -> do
         liftIO $ atomicModifyIORef' appStateRef $ \appState ->
           let
-            preMatrix = appStatePreMatrix appState
+            preMatrix = cpmPreMatrix $ appStatePreMatrix appState
             appState' = if Gtk.Control `elem` mods
               then fix $ \this -> appState
-                { appStatePreMatrix = preMatrix & pmScaleL %~ subtract 0.15,
+                { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmScaleL %~ subtract 0.15,
                   appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this)
                 }
               else appState
-                { appStatePreMatrix = preMatrix & pmOffsetL . _2 %~ subtract 5
+                { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmOffsetL . _2 %~ subtract 5
                 }
           in
             (appState', ())
@@ -270,14 +243,14 @@ example = do
       Gtk.ScrollLeft -> do
         liftIO $ atomicModifyIORef' appStateRef $ \appState ->
           let
-            preMatrix = appStatePreMatrix appState
+            preMatrix = cpmPreMatrix $ appStatePreMatrix appState
             appState' = if Gtk.Control `elem` mods
               then fix $ \this -> appState
-                { appStatePreMatrix = preMatrix & pmRotateL %~ pred,
+                { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmRotateL %~ pred,
                   appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this)
                 }
               else appState
-                { appStatePreMatrix = preMatrix & pmOffsetL . _1 %~ (+5)
+                { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmOffsetL . _1 %~ (+5)
                 }
           in
             (appState', ())
@@ -285,14 +258,14 @@ example = do
       Gtk.ScrollRight -> do
         liftIO $ atomicModifyIORef' appStateRef $ \appState ->
           let
-            preMatrix = appStatePreMatrix appState
+            preMatrix = cpmPreMatrix $ appStatePreMatrix appState
             appState' = if Gtk.Control `elem` mods
               then fix $ \this -> appState
-                { appStatePreMatrix = preMatrix & pmRotateL %~ succ,
+                { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmRotateL %~ succ,
                   appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this)
                 }
               else appState
-                { appStatePreMatrix = preMatrix & pmOffsetL . _1 %~ subtract 5
+                { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmOffsetL . _1 %~ subtract 5
                 }
           in
             (appState', ())
@@ -305,44 +278,6 @@ example = do
   Gtk.windowMaximize win
   Gtk.widgetShowAll win
   Gtk.mainGUI
-
-pattern ArrowLeft :: Word32
-pattern ArrowLeft = 65361
-
-pattern ArrowRight :: Word32
-pattern ArrowRight = 65363
-
---pattern ArrowUp = 65362
---pattern ArrowDown = 65364
-
-pattern Delete :: Word32
-pattern Delete = 65535
-
-pattern Backspace :: Word32
-pattern Backspace = 65288
-
-newtype Phaser = Phaser (IORef Word)
-
-createPhaser :: IO Phaser
-createPhaser = Phaser <$> newIORef 0
-
-resetPhaser :: Phaser -> IO ()
-resetPhaser (Phaser r) = writeIORef r 0
-
-updatePhaser :: Phaser -> IO ()
-updatePhaser (Phaser r) = atomicModifyIORef' r (\x -> (x + 1, ()))
-
-readPhaser :: Phaser -> (Word -> r) -> IO r
-readPhaser (Phaser r) cont = cont <$> readIORef r
-
-setBackground :: Color -> Cairo.Render (Double, Double)
-setBackground background = do
-  (x1, y1, x2, y2) <- Cairo.clipExtents
-  let viewport@(w, h) = (x2 - x1, y2 - y1)
-  viewport <$ do
-    Cairo.rectangle 0 0 w h
-    setSourceColor background
-    Cairo.fill
 
 data El = ElRect (PrimRect WithPhase) | ElText (PrimText WithPhase) | ElCurve (PrimCurve WithPhase) | ElCircle (PrimCircle WithPhase)
 
@@ -384,15 +319,6 @@ exampleLayout = mkLayout $ Vis $
 
 makeCircle :: El
 makeCircle = circle (PhaseConst $ rgb 205 255 215) 15
-
-getExcess :: Double -> Double -> Double
-getExcess vacant actual = max 0 (vacant - actual)
-
-boundingBox :: Ord a => NonEmpty (a, a) -> (a, a, a, a)
-boundingBox xs = (l,r,t,b)
-  where
-    ((Min l, Min t), (Max r, Max b)) =
-      sconcat $ (\(x, y) -> ((Min x, Min y), (Max x, Max y))) <$> xs
 
 instance Inj (PrimRect WithPhase) El where
   inj = ElRect

@@ -122,5 +122,5 @@ instance RenderElement g (PrimCurve g) where
 instance RenderElement g (PrimCircle g)   where
   renderElement (PrimCircle cc c) getG (Offset x y) = do
       setSourceColor $ getG cc
-      Cairo.arc (toSigned c + x) (toSigned c + y) (toSigned c) 0 180
+      Cairo.arc (toSigned c + x) (toSigned c + y) (toSigned c) 0 (2 * pi)
       Cairo.fill

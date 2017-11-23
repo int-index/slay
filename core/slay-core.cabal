@@ -1,65 +1,12 @@
-name:
-  slay-core
-
-version:
-  0
-
-build-type:
-  Simple
-
-cabal-version:
-  >=2.0
+name: slay-core
+version: 0
+build-type: Simple
+cabal-version: >=2.1
 
 library
-
-  signatures:
-    Slay.Number
-
-  exposed-modules:
-    Slay.Core
-
-  build-depends:
-    base,
-    reflection
-
-  hs-source-dirs:
-    src
-
-  default-language:
-    Haskell2010
-
-  default-extensions:
-    BangPatterns
-    ConstraintKinds
-    DataKinds
-    DefaultSignatures
-    DeriveGeneric
-    DeriveFunctor
-    DeriveFoldable
-    DeriveTraversable
-    FlexibleContexts
-    FlexibleInstances
-    GADTs
-    GeneralizedNewtypeDeriving
-    LambdaCase
-    MultiParamTypeClasses
-    MultiWayIf
-    NegativeLiterals
-    OverloadedStrings
-    PatternSynonyms
-    PolyKinds
-    RankNTypes
-    RecordWildCards
-    RecursiveDo
-    ScopedTypeVariables
-    StandaloneDeriving
-    TemplateHaskell
-    TupleSections
-    TypeApplications
-    TypeFamilies
-    TypeOperators
-    UndecidableInstances
-    ViewPatterns
-
-  ghc-options:
-    -Wall
+  signatures: Slay.Number
+  exposed-modules: Slay.Core
+  build-depends: base
+  hs-source-dirs: src
+  default-language: Haskell2010
+  ghc-options: -Wall -fno-warn-partial-type-signatures
