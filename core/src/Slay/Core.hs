@@ -24,6 +24,18 @@ expressed in terms of these three.
 
 -}
 
+{-# LANGUAGE
+    AllowAmbiguousTypes,
+    DeriveFunctor,
+    FunctionalDependencies,
+    LambdaCase,
+    PartialTypeSignatures,
+    RankNTypes,
+    ScopedTypeVariables,
+    TypeApplications,
+    TypeOperators
+#-}
+
 module Slay.Core
   (
     -- * Coordinates
@@ -40,7 +52,7 @@ module Slay.Core
 
     -- * View
     View,
-    HasView,
+    HasView(),
 
     -- * Collage
     Collage(),
@@ -52,18 +64,15 @@ module Slay.Core
     Layout(),
     hoistLayout,
     mkLayout,
+    runLayout,
     layoutElements
 
   ) where
 
 import Data.Monoid (Endo(..), (<>))
-
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
-
-import Data.Kind
-import Data.Proxy
-import Data.Reflection
+import Unsafe.Coerce (unsafeCoerce)
 
 import Slay.Number
 
@@ -75,7 +84,7 @@ data Offset =
     } deriving (Eq, Ord, Show)
 
 -- | Lift a binary numeric operation to offsets,
---   applying it to both dimensions.
+-- applying it to both dimensions.
 offsetOp ::
   (Signed -> Signed -> Signed) ->
   (Offset -> Offset -> Offset)
@@ -106,7 +115,7 @@ data Extents =
     } deriving (Eq, Ord, Show)
 
 -- | Lift a binary numeric operation to extents,
---   applying it to both dimensions.
+-- applying it to both dimensions.
 extentsOp ::
   (Unsigned -> Unsigned -> Unsigned) ->
   (Extents -> Extents -> Extents)
@@ -132,12 +141,14 @@ type View e a = e -> (Extents, a)
 
 -- | The 'HasView' constraint in a function means that the function has access
 -- to a view function.
-class    Reifies s (View e a) => HasView s e a
-instance Reifies s (View e a) => HasView s e a
+class HasView s e a | s -> e, s -> a where
+  getView :: View e a
 
--- | Get the view function from the environment.
-getView :: HasView s e a => Proxy s -> View e a
-getView = reflect
+newtype WithView s e a r = WithView (HasView s e a => r)
+
+-- | Mini-reflection.
+withView :: (forall s. WithView s e a r) -> (View e a -> r)
+withView = unsafeCoerce
 
 -- | A collage of elements. Can be either a single element or a combination of
 -- two sub-collages with relative offsets from a point. Structurally, it's a
@@ -165,7 +176,7 @@ getView = reflect
 -- stored as a separate field for performance. Therefore, getting the extents of
 -- a collage with the 'collageExtents' function is a constant-time operation.
 --
-data Collage (s :: Type) a =
+data Collage s a =
   CollageSingleton
     Extents -- bounding box
     a
@@ -212,7 +223,7 @@ collageSingleton ::
   Collage s a
 collageSingleton m =
   let
-    view = getView (Proxy :: Proxy s)
+    view = getView @s
     (e, a) = view m
   in
     CollageSingleton e a
@@ -277,16 +288,22 @@ mkLayout ::
   (forall s a. HasView s e a => f (Collage s a)) ->
   Layout f e
 mkLayout collage =
-  Layout $ \view cont -> reify view (\p -> h p cont <$> collage)
-  where
-    h :: Proxy s -> (Collage s a -> r) -> Collage s a -> r
-    h _ cont = cont
+  Layout $ \view cont -> withView
+    (WithView (cont <$> collage @s) :: forall s. WithView s _ _ _)
+    view
+
+-- | Pass the collage stored in the layout to a continuation.
+runLayout ::
+  (forall s. Collage s a -> r) ->
+  View e a ->
+  Layout f e ->
+  f r
+runLayout cont view (Layout mkCollage) = mkCollage view cont
 
 -- | Collect the elements of a layout. Analogous to 'collageElements', but takes
 -- the view function as an explicit parameter.
 layoutElements ::
-  Functor f =>
   View e a ->
   Layout f e ->
   f (NonEmpty (Offset, a))
-layoutElements view (Layout mkCollage) = mkCollage view collageElements
+layoutElements = runLayout collageElements

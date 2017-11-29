@@ -14,6 +14,10 @@ library
 
   exposed-modules:
     Slay.Gtk
+    Slay.Gtk.Phaser
+    Slay.Gtk.PreMatrix
+    Slay.Gtk.KeyCode
+    Slay.Gtk.Util
 
   build-depends:
     base,
@@ -23,6 +27,7 @@ library
     transformers,
     text,
     microlens-platform,
+    template-haskell,
     slay-cairo
 
   hs-source-dirs:
@@ -67,7 +72,6 @@ library
   ghc-options:
     -Wall
     -Wno-missing-pattern-synonym-signatures
-    -threaded
 
 executable slay-gtk-example
   main-is:
