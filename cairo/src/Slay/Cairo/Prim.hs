@@ -1,130 +1,25 @@
 module Slay.Cairo.Prim
-  ( Color(..)
-  , FontWeight(..)
-  , Font(..)
-  , Curvature(..)
-  , Direction(..)
-  , PrimRect(..)
-  , PrimText(..)
-  , PrimCurve(..)
-  , PrimCircle(..)
-  , LRTB(..)
-  , Inj(..)
-  , substrate
-  , rgb
-  , rect
-  , text
-  , curve
-  , circle
-  , circleExtents
+  ( module Slay.Cairo.Prim.Color,
+    module Slay.Cairo.Prim.Text,
+    module Slay.Cairo.Prim.Rect,
+    module Slay.Cairo.Prim.Curve,
+    module Slay.Cairo.Prim.Circle,
+    module Slay.Cairo.Prim.PangoText,
+
+    -- * Layouting combinators
+    LRTB(..),
+    substrate
   ) where
 
-import Data.Word
-import Data.Fixed
-import Data.Text
-import Numeric.Natural
+import Slay.Cairo.Prim.Color
+import Slay.Cairo.Prim.Text
+import Slay.Cairo.Prim.Rect
+import Slay.Cairo.Prim.Curve
+import Slay.Cairo.Prim.Circle
+import Slay.Cairo.Prim.PangoText
 
 import Slay.Number
 import Slay.Core
-
-data Color =
-  -- true color (24bit)
-  RGB Word8 Word8 Word8
-  deriving (Eq, Ord, Show)
-
-data FontWeight =
-  FontWeightBold | FontWeightNormal
-  deriving (Eq, Ord, Show)
-
-data Font g =
-  Font
-    { fontFamily :: Text,
-      fontSize :: Centi,
-      fontColor :: g Color,
-      fontWeight :: FontWeight
-    }
-
-deriving instance Eq (g Color) => Eq (Font g)
-deriving instance Ord (g Color) => Ord (Font g)
-deriving instance Show (g Color) => Show (Font g)
-
-data PrimRect g =
-  PrimRect
-    { rectExtents :: Extents,
-      rectBackground :: g (Maybe Color)
-    }
-
-deriving instance Eq (g (Maybe Color)) => Eq (PrimRect g)
-deriving instance Ord (g (Maybe Color)) => Ord (PrimRect g)
-deriving instance Show (g (Maybe Color)) => Show (PrimRect g)
-
-data PrimText g =
-  PrimText
-    { textFont :: Font g,
-      textContent :: Text,
-      textCursor :: g (Maybe Natural)
-    }
-
-deriving instance (Eq (g (Maybe Natural)), Eq (g (Color))) => Eq (PrimText g)
-deriving instance (Ord (g (Maybe Natural)), Ord (g (Color))) => Ord (PrimText g)
-deriving instance (Show (g (Maybe Natural)), Show (g (Color))) => Show (PrimText g)
-
--- from -1 to 1
-newtype Curvature = Curvature Rational
-
-data Direction =
-  Direction
-    { directionLeftToRight :: Bool,
-      directionTopToBottom :: Bool
-    }
-
-
-data PrimCurve g =
-  PrimCurve
-    { curveExtents :: Extents,
-      curveCurvature :: g Curvature,
-      curveColor :: g Color,
-      curveDirection :: g Direction,
-      curveWidth :: g Unsigned
-    }
-
-
-data PrimCircle g = PrimCircle
-    { circleColor :: g Color
-    , circleRadius :: Unsigned
-    }
-
-
-class Inj p a where
-  inj :: p -> a
-
-instance Inj a a where
-  inj = id
-
-instance Inj p a => Inj p (Maybe a) where
-  inj = Just . inj
-
-instance (HasView s e a, Inj p e) => Inj p (Collage s a) where
-  inj = collageSingleton . inj
-
-
-rgb :: Inj Color a => Word8 -> Word8 -> Word8 -> a
-rgb r g b = inj (RGB r g b)
-
-rect :: Inj (PrimRect g) a => g (Maybe Color) -> Extents -> a
-rect background extents = inj (PrimRect extents background)
-
-text :: Inj (PrimText g) a => Font g -> Text -> g (Maybe Natural) -> a
-text font content cursor = inj (PrimText font content cursor)
-
-curve :: Inj (PrimCurve g) a => g Curvature -> g Color -> g Direction -> g Unsigned -> Extents -> a
-curve curvature color direction width extents = inj (PrimCurve extents curvature color direction width)
-
-circle :: Inj (PrimCircle g) a => g Color -> Unsigned -> a
-circle color radius = inj (PrimCircle color radius)
-
-circleExtents :: PrimCircle g -> Extents
-circleExtents c = Extents (2 * r) (2 * r) where r = circleRadius c
 
 data LRTB a = LRTB
   { left :: a,
