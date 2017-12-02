@@ -11,12 +11,12 @@ import Numeric.Natural
 import Data.IORef
 import Data.Word
 import Data.Semigroup
+import Data.Foldable
 import Data.List.NonEmpty as NonEmpty
 import Lens.Micro.Platform
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Function
-import Data.Ratio
 
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.Rendering.Cairo.Matrix as Matrix
@@ -90,17 +90,20 @@ example = do
         appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this) }
   cursorPhaser <- createPhaser
   colorPhaser <- createPhaser
+  widthPhaser <- createPhaser
+  curvaturePhaser <- createPhaser
   _ <- flip Gtk.timeoutAdd 5 $ do
     Gtk.postGUIAsync (Gtk.widgetQueueDraw drawArea)
-    updatePhaser cursorPhaser
-    updatePhaser colorPhaser
+    traverse_ updatePhaser [cursorPhaser, colorPhaser, widthPhaser, curvaturePhaser]
     return True
   _ <- Gtk.on drawArea Gtk.draw $ do
     cursorPhase <- liftIO $ readPhaser cursorPhaser $ \w -> even (w `div` 100)
     colorPhase <- liftIO $ readPhaser colorPhaser $ \w -> case divMod w 256 of
       (d, m) -> fromIntegral $ if even d then m else 255 - m
-    let curvaturePhase = (toInteger colorPhase % 255) * 2 - 1
-    let widthPhase = unsafeToUnsigned $ (realToFrac colorPhase + 1) / 50
+    widthPhase <- liftIO $ readPhaser widthPhaser $ \w -> case divMod w 1256 of
+      (d, m) -> fromIntegral $ if even d then m else 1255 - m
+    curvaturePhase <- liftIO $ readPhaser curvaturePhaser $ \w -> case divMod w 1256 of
+      (d, m) -> fromIntegral $ if even d then m else 1255 - m
     appState <- liftIO $ readIORef appStateRef
     let
       CachedPreMatrix _ matrix matrix' = appStatePreMatrix appState
@@ -290,8 +293,8 @@ withExtents matrix = \case
   ElCurve primCurve -> (curveExtents primCurve, SomeRenderElement primCurve)
   ElCircle circ -> (circleExtents circ, SomeRenderElement circ)
 
-ubuntuFont :: Centi -> Font WithPhase
-ubuntuFont size = Font "Ubuntu" size (PhaseConst (RGB 0 0 0)) FontWeightNormal
+ubuntuFont :: Centi -> Font
+ubuntuFont size = Font "Ubuntu" size FontWeightNormal
 
 newtype Vis a = Vis (Text -> (a, Extents), Word8 -> Color)
   deriving (Functor)
@@ -307,10 +310,15 @@ exampleLayout = mkLayout $ Vis $
       substrate (LRTB 5 5 5 5) (rect $ PhaseColor $ \colorPhase -> rgb colorPhase 130 200) $
       substrate (LRTB 1 1 1 1) (rect $ PhaseConst $ rgb 0 0 0) $
       substrate (LRTB 3 3 3 3) (rect $ PhaseConst $ rgb 255 255 255) $
-      substrate (LRTB 3 3 3 3) (curve (PhaseCurvature Curvature) (PhaseColor $ \colorPhase -> rgb colorPhase 130 200) (PhaseConst (Direction True False)) (PhaseWidth id)) $
+      substrate (LRTB 3 3 3 3) (curve
+        (PhaseCurvature (Curvature.(subtract 1).(/628)))
+        (PhaseColor $ \colorPhase -> rgb colorPhase 130 200)
+        (PhaseConst (Direction True False))
+        (PhaseWidth ((+1).(/1000)))
+        (Just $ rgb 0 0 255)) $
       collageCompose (Offset 200 0)
         (substrate (LRTB 0 0 0 0) (rect $ PhaseConst $ rgb 255 0 0) $ collageSingleton makeCircle)
-        (text (ubuntuFont 12) msg
+        (text (ubuntuFont 12) (PhaseConst $ rgb 0 0 0) msg
         (PhaseCursor $ \cursor c -> if c then Just cursor else Nothing))
     msgboxWithExtents msg =
       let msgbox = mkMsgbox msg
