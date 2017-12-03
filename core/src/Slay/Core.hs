@@ -38,7 +38,8 @@ collect the elements with their absolute coordinates using 'layoutElements'.
     ScopedTypeVariables,
     TypeApplications,
     TypeOperators,
-    TypeFamilies
+    TypeFamilies,
+    UndecidableInstances
 #-}
 
 module Slay.Core
@@ -90,6 +91,7 @@ module Slay.Core
 
 import Data.Monoid (Endo(..), (<>))
 import Data.Functor.Identity
+import Data.String
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import Unsafe.Coerce (unsafeCoerce)
@@ -317,6 +319,9 @@ collageSingleton m =
   in
     collage
 
+instance (s -/ e, IsString e) => IsString (Collage s) where
+  fromString = collageSingleton . fromString
+
 -- | Combine a pair of collages by placing one atop another
 -- with an offset. For instance, an @'Offset' a b@ would yield
 -- the following result:
@@ -351,10 +356,10 @@ collageCompose offset c1 c2 =
 
 -- | Collect the elements of a collage (see also: 'collageRepElements').
 collageElements ::
-  (forall s. s -/ e => Collage s) ->
   View e a ->
+  (forall s. s -/ e => Collage s) ->
   NonEmpty (Offset, a)
-collageElements collage view =
+collageElements view collage =
   runIdentity $ layoutElements view $ mkLayout (Identity collage)
 
 -- | @'Layout' f e@ is a wrapper around @s '-/' e => f ('Collage' s)@.
