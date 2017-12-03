@@ -1,5 +1,6 @@
 packages:
   number-integer/
+  number-int/
   number-double/
   core/
   combinators/
