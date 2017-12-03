@@ -5,4 +5,5 @@ packages:
   core/
   combinators/
   cairo/
+  vty/
   gtk/
