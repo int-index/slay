@@ -29,11 +29,11 @@ data LRTB a = LRTB
   } deriving (Eq, Ord, Show)
 
 substrate ::
-  HasView s e a =>
+  s -/ e =>
   LRTB Unsigned ->
   (Extents -> e) ->
-  Collage s a ->
-  Collage s a
+  Collage s ->
+  Collage s
 substrate pad mkObject collage =
   collageCompose
     Offset
