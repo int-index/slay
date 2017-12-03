@@ -13,6 +13,6 @@ instance Inj a a where
 instance Inj p a => Inj p (Maybe a) where
   inj = Just . inj
 
-instance (HasView s e a, Inj p e) => Inj p (Collage s a) where
+instance (s -/ e, Inj p e) => Inj p (Collage s) where
   inj = collageSingleton . inj
 

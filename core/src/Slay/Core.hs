@@ -8,10 +8,8 @@ compute absolute coordinates for primitives on a 2-dimensional plane.
 This module contains the core of the layouting engine. It's parametrized by the
 coordinate types using Backpack.
 
-The basic use of the library is to build a 'Collage' with the 'HasView'
-constraint in the context, then turn it into a 'Layout' using 'mkLayout', and
-then collect the elements with their absolute coordinates using
-'layoutElements'.
+The basic use of the library is to build a 'Collage' with the '-/'
+constraint in the context, then extract its elements with 'collageElements'.
 
 To build a collage, there are three primary combinators:
 
@@ -22,18 +20,25 @@ To build a collage, there are three primary combinators:
 Other combinators, such as horizontal and vertical composition, can be
 expressed in terms of these three.
 
+In case there is a need for a functorial context, instead of using
+'collageElements', turn the collage into a 'Layout' with 'mkLayout', and then
+collect the elements with their absolute coordinates using 'layoutElements'.
+
 -}
 
 {-# LANGUAGE
     AllowAmbiguousTypes,
+    ConstraintKinds,
     DeriveFunctor,
     FunctionalDependencies,
+    GADTs,
     LambdaCase,
     PartialTypeSignatures,
     RankNTypes,
     ScopedTypeVariables,
     TypeApplications,
-    TypeOperators
+    TypeOperators,
+    TypeFamilies
 #-}
 
 module Slay.Core
@@ -46,30 +51,45 @@ module Slay.Core
     offsetAdd,
     offsetSub,
     offsetMax,
+    offsetNegate,
     offsetZero,
+    unsafeOffsetExtents,
+
+    -- * Extents
     Extents(..),
+    extentsAdd,
+    extentsMax,
     extentsOffset,
 
     -- * View
     View,
-    HasView(),
+    HasView(Element),
+    type (-/),
+    withView,
+    ElementRefl(..),
 
     -- * Collage
-    Collage(),
+    Collage(..),
     collageSingleton,
     collageCompose,
     collageExtents,
+    collageElements,
+
+    -- * CollageRep
+    CollageRep(),
+    collageRepElements,
+    collageRepExtents,
 
     -- * Layout
-    Layout(),
-    hoistLayout,
+    Layout(..),
     mkLayout,
-    runLayout,
-    layoutElements
+    layoutElements,
+    hoistLayout
 
   ) where
 
 import Data.Monoid (Endo(..), (<>))
+import Data.Functor.Identity
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import Unsafe.Coerce (unsafeCoerce)
@@ -93,17 +113,53 @@ offsetOp (#) o1 o2 =
     { offsetX = offsetX o1 # offsetX o2,
       offsetY = offsetY o1 # offsetY o2 }
 
-offsetAdd, offsetSub, offsetMax :: Offset -> Offset -> Offset
+-- | Offset pointwise addition.
+--
+-- >>> offsetAdd (Offset 10 20) (Offset 1 2)
+-- Offset {offsetX = 11, offsetY = 22}
+--
+offsetAdd :: Offset -> Offset -> Offset
 offsetAdd = offsetOp (+)
+
+-- | Offset pointwise subtraction.
+--
+-- >>> offsetSub (Offset 10 20) (Offset 1 2)
+-- Offset {offsetX = 9, offsetY = 18}
+--
+offsetSub :: Offset -> Offset -> Offset
 offsetSub = offsetOp (-)
+
+-- | Offset pointwise maximum.
+--
+-- >>> offsetMax (Offset 10 1) (Offset 2 20)
+-- Offset {offsetX = 10, offsetY = 20}
+--
+offsetMax :: Offset -> Offset -> Offset
 offsetMax = offsetOp max
 
+-- | Offset pointwise negation.
+--
+-- >>> offsetNegate (Offset 5 -10)
+-- Offset {offsetX = -5, offsetY = 10}
+--
 offsetNegate :: Offset -> Offset
 offsetNegate (Offset x y) = Offset (negate x) (negate y)
 
+-- | Zero offset.
+--
+-- prop> offsetAdd offsetZero a = a
+-- prop> offsetAdd a offsetZero = a
+-- prop> offsetSub a offsetZero = a
+-- prop> offsetSub offsetZero a = offsetNegate a
+--
+-- Note that 'offsetZero' is /not/ an identity element for 'offsetMax'
+-- becasue an offset can be negative.
 offsetZero :: Offset
 offsetZero = Offset 0 0
 
+-- | Convert an offset to extents.
+-- Precondition: offset is non-negative, otherwise the function
+-- throws @Underflow :: ArithException@.
 unsafeOffsetExtents :: Offset -> Extents
 unsafeOffsetExtents (Offset x y) = Extents (unsafeToUnsigned x) (unsafeToUnsigned y)
 
@@ -124,10 +180,23 @@ extentsOp (#) o1 o2 =
     { extentsW = extentsW o1 # extentsW o2,
       extentsH = extentsH o1 # extentsH o2 }
 
-extentsAdd, extentsMax :: Extents -> Extents -> Extents
+-- | Extents pointwise addition.
+--
+-- >>> extentsAdd (Extents 10 20) (Extents 1 2)
+-- Extents {extentsX = 11, extentsY = 22}
+--
+extentsAdd :: Extents -> Extents -> Extents
 extentsAdd = extentsOp (+)
+
+-- | Extents pointwise maximum.
+--
+-- >>> extentsMax (Extents 10 1) (Extents 2 20)
+-- Extents {extentsX = 10, extentsY = 20}
+--
+extentsMax :: Extents -> Extents -> Extents
 extentsMax = extentsOp max
 
+-- | Convert extents to an offset.
 extentsOffset :: Extents -> Offset
 extentsOffset (Extents w h) = Offset (toSigned w) (toSigned h)
 
@@ -139,16 +208,40 @@ extentsOffset (Extents w h) = Offset (toSigned w) (toSigned h)
 -- represents the backend-specific type of drawing primitives.
 type View e a = e -> (Extents, a)
 
--- | The 'HasView' constraint in a function means that the function has access
+-- | The 'HasView' constraint in a function context means that the function has access
 -- to a view function.
-class HasView s e a | s -> e, s -> a where
-  getView :: View e a
+class HasView s e | s -> e where
+  type Element s
+  getView :: View e (Element s)
 
-newtype WithView s e a r = WithView (HasView s e a => r)
+-- | An infix synonym for 'HasView'.
+type (-/) = HasView
 
--- | Mini-reflection.
-withView :: (forall s. WithView s e a r) -> (View e a -> r)
-withView = unsafeCoerce
+-- | Link the element type with its reflection tag.
+-- This is a low-level primitive needed for 'withView'.
+data ElementRefl s a where
+  ElementRefl :: ElementRefl s (Element s)
+
+newtype WithView s e a r = WithView (s -/ e => ElementRefl s a -> r)
+
+-- | Reflect the view function into types.
+-- This is a low-level primitive, consider using 'Layout' instead.
+withView :: (forall s. s -/ e => ElementRefl s a -> r) -> (View e a -> r)
+withView wv view = unsafeCoerce (WithView wv) view ElementRefl
+
+-- | The internal representation of a collage.
+data CollageRep a =
+  CollageSingleton
+    Extents -- bounding box
+    a
+  |
+  CollageCompose
+    Extents -- bounding box
+    (Offset, CollageRep a) -- collage below, with offset[1]
+    (Offset, CollageRep a) -- collage above, with offset[1]
+    -- [1] the offset is from the top left corner of the bounding box and
+    -- is always non-negative
+  deriving (Functor)
 
 -- | A collage of elements. Can be either a single element or a combination of
 -- two sub-collages with relative offsets from a point. Structurally, it's a
@@ -176,57 +269,53 @@ withView = unsafeCoerce
 -- stored as a separate field for performance. Therefore, getting the extents of
 -- a collage with the 'collageExtents' function is a constant-time operation.
 --
-data Collage s a =
-  CollageSingleton
-    Extents -- bounding box
-    a
-  |
-  CollageCompose
-    Extents -- bounding box
-    (Offset, Collage s a) -- collage below, with offset[1]
-    (Offset, Collage s a) -- collage above, with offset[1]
-    -- [1] the offset is from the top left corner of the bounding box and
-    -- is always non-negative
-  deriving (Functor)
+newtype Collage s = CollageRep { getCollageRep :: CollageRep (Element s) }
+
+getViewOf :: s -/ e => Collage s -> View e (Element s)
+getViewOf (_ :: Collage s) = getView @s
 
 -- | Get the bounding box of a collage in constant time.
-collageExtents :: Collage s a -> Extents
-collageExtents = \case
+collageRepExtents :: CollageRep a -> Extents
+collageRepExtents = \case
   CollageSingleton e _ -> e
   CollageCompose e _ _ -> e
 
+-- | Get the bounding box of a collage in constant time.
+collageExtents :: Collage s -> Extents
+collageExtents = collageRepExtents . getCollageRep
+
 -- | Get a non-empty list of primitives with absolute positions,
 -- ordered by z-index (ascending).
-collageElements ::
-  Collage s a ->
+collageRepElements ::
+  CollageRep a ->
   NonEmpty (Offset, a)
-collageElements collage =
-  NonEmpty.fromList $ collageElements' offsetZero collage `appEndo` []
+collageRepElements collageRep =
+  NonEmpty.fromList $ collageRepElements' offsetZero collageRep `appEndo` []
 
 type DList a = Endo [a]
 
-collageElements' ::
+collageRepElements' ::
   Offset ->
-  Collage s a ->
+  CollageRep a ->
   DList (Offset, a)
-collageElements' offset = \case
+collageRepElements' offset = \case
   CollageSingleton _ a -> Endo ((offset, a):)
   CollageCompose _ (o1, c1) (o2, c2) ->
-    collageElements' (offsetAdd o1 offset) c1 <>
-    collageElements' (offsetAdd o2 offset) c2
+    collageRepElements' (offsetAdd o1 offset) c1 <>
+    collageRepElements' (offsetAdd o2 offset) c2
 
 -- | Construct a collage from a single element.
 collageSingleton ::
-  forall s e a.
-  HasView s e a =>
+  s -/ e =>
   e ->
-  Collage s a
+  Collage s
 collageSingleton m =
   let
-    view = getView @s
+    view = getViewOf collage
     (e, a) = view m
+    collage = CollageRep (CollageSingleton e a)
   in
-    CollageSingleton e a
+    collage
 
 -- | Combine a pair of collages by placing one atop another
 -- with an offset. For instance, an @'Offset' a b@ would yield
@@ -244,12 +333,15 @@ collageSingleton m =
 --       +------------+
 -- @
 collageCompose ::
-  HasView s e a =>
+  s -/ e =>
   Offset ->
-  Collage s a ->
-  Collage s a ->
-  Collage s a
-collageCompose offset c1 c2 = CollageCompose extents (o1, c1) (o2, c2)
+  Collage s ->
+  Collage s ->
+  Collage s
+collageCompose offset c1 c2 =
+    CollageRep $ CollageCompose extents
+      (o1, getCollageRep c1)
+      (o2, getCollageRep c2)
   where
     o1 = offsetMax offsetZero (offsetNegate offset)
     o2 = offsetMax offsetZero offset
@@ -257,53 +349,47 @@ collageCompose offset c1 c2 = CollageCompose extents (o1, c1) (o2, c2)
     e2 = unsafeOffsetExtents o2 `extentsAdd` collageExtents c2
     extents = extentsMax e1 e2
 
--- | @'Layout' f e@ is a wrapper around @HasView s e a => f (Collage s a)@.
+-- | Collect the elements of a collage (see also: 'collageRepElements').
+collageElements ::
+  (forall s. s -/ e => Collage s) ->
+  View e a ->
+  NonEmpty (Offset, a)
+collageElements collage view =
+  runIdentity $ layoutElements view $ mkLayout (Identity collage)
+
+-- | @'Layout' f e@ is a wrapper around @s '-/' e => f ('Collage' s)@.
 -- Internally, it takes 'View' as an explicit argument instead of a 'HasView'
--- constraint, and uses continuation-passing style to encode existential
--- quantification of the 's' parameter.
---
--- The @f@ parameter is not strictly necessary, as @'Layout' f e@ is (almost)
--- the same as @f (Layout Identity e)@. However, @Layout (ReaderT ctx f) e@ may
--- perform better than @ctx -> Layout f e@ because it's possible to have sharing
--- for parts of the collage that don't depend on @ctx@.
+-- constraint.
 --
 -- 'Layout' is a bifunctor from @H^H * H@ to @H@, see 'hoistLayout' and 'fmap'.
 --
-data Layout f e = Layout (forall a r. View e a -> (forall s. Collage s a -> r) -> f r)
-
-instance Functor (Layout f) where
-  fmap f (Layout mkCollage) =
-    Layout (\view -> mkCollage (view . f))
+newtype Layout f e =
+  Layout
+    { runLayout :: forall a. View e a -> f (CollageRep a) }
+  deriving (Functor)
 
 type f ~> g = forall a. f a -> g a
 
 -- | Map over the functorial context of a layout.
 hoistLayout :: (f ~> g) -> (Layout f ~> Layout g)
-hoistLayout f (Layout mkCollage) =
-  Layout (\view cont -> f (mkCollage view cont))
+hoistLayout f (Layout mkCollage) = Layout (f . mkCollage)
 
 -- | Construct a layout from a collage.
 mkLayout ::
   Functor f =>
-  (forall s a. HasView s e a => f (Collage s a)) ->
+  (forall s. s -/ e => f (Collage s)) ->
   Layout f e
 mkLayout collage =
-  Layout $ \view cont -> withView
-    (WithView (cont <$> collage @s) :: forall s. WithView s _ _ _)
-    view
+  Layout $ withView $
+    \(ElementRefl :: ElementRefl s a) ->
+      -- TODO: optimize with fmapCoerce
+      getCollageRep <$> collage @s
 
--- | Pass the collage stored in the layout to a continuation.
-runLayout ::
-  (forall s. Collage s a -> r) ->
-  View e a ->
-  Layout f e ->
-  f r
-runLayout cont view (Layout mkCollage) = mkCollage view cont
-
--- | Collect the elements of a layout. Analogous to 'collageElements', but takes
--- the view function as an explicit parameter.
+-- | Collect the elements of a layout (see also: 'collageRepElements').
 layoutElements ::
+  Functor f =>
   View e a ->
   Layout f e ->
   f (NonEmpty (Offset, a))
-layoutElements = runLayout collageElements
+layoutElements view layout =
+  collageRepElements <$> runLayout layout view
