@@ -74,6 +74,8 @@ module Slay.Core
     collageSingleton,
     collageCompose,
     collageExtents,
+    collageWidth,
+    collageHeight,
     collageElements,
 
     -- * CollageRep
@@ -285,6 +287,14 @@ collageRepExtents = \case
 -- | Get the bounding box of a collage in constant time.
 collageExtents :: Collage s -> Extents
 collageExtents = collageRepExtents . getCollageRep
+
+-- | Get the width of a collage in constant time.
+collageWidth :: Collage s -> Unsigned
+collageWidth = extentsW . collageExtents
+
+-- | Get the height of a collage in constant time.
+collageHeight :: Collage s -> Unsigned
+collageHeight = extentsH . collageExtents
 
 -- | Get a non-empty list of primitives with absolute positions,
 -- ordered by z-index (ascending).
