@@ -23,6 +23,7 @@ import qualified Graphics.Rendering.Cairo.Matrix as Matrix
 import qualified Graphics.Rendering.Cairo as Cairo
 
 import Slay.Cairo
+import Slay.Combinators
 import Slay.Gtk.PreMatrix
 import Slay.Gtk.Phaser
 import Slay.Gtk.KeyCode
