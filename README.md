@@ -70,9 +70,9 @@ $ pkg-config --modversion gtk+-3.0
 ## Project structure
 
 The main package is `slay-core`, it contains the layouting engine. The engine
-is abstracted over coordinate types using Backpack. There are two supplemental
-packages to instantiate coordinates: `slay-number-double` and
-`slay-number-integer`.
+is abstracted over coordinate types using Backpack. There are a few supplemental
+packages to instantiate coordinates: `slay-number-double`,
+`slay-number-integer`, and `slay-number-int`.
 
 In `slay-core` there are two modules:
 
@@ -85,8 +85,13 @@ pixel-based canvas or for a character-based terminal. Therefore, there are many
 possible backends:
 
 * `slay-cairo` implements a few primitives on top of the `cairo` drawing engine
-* `slay-vty` (not implemented yet) will support terminals
+* `slay-vty` implements a thin layer over `vty` for terminal pseudographics
 * `slay-web` (not implemented yet) will support browsers
+
+The `slay-combinators` package defines common positioning strategies, such as
+horizontal and vertical juxtaposition, and various helper functions for
+positioning. For now it's quite simplistic, but sophisticated positioning
+algorithms can be added there in the future.
 
 There are also packages that serve as a testing ground for development and provide
 examples of using the library. For now there's only one such package, `slay-gtk`.
