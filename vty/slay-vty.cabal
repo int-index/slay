@@ -1,5 +1,5 @@
 name:
-  slay-cairo
+  slay-vty
 
 version:
   0
@@ -13,27 +13,19 @@ cabal-version:
 library
 
   exposed-modules:
-    Slay.Cairo
-    Slay.Cairo.Inj
-    Slay.Cairo.Render
-    Slay.Cairo.Prim
-    Slay.Cairo.Prim.Color
-    Slay.Cairo.Prim.Rect
-    Slay.Cairo.Prim.Text
-    Slay.Cairo.Prim.Curve
-    Slay.Cairo.Prim.Circle
-    Slay.Cairo.Prim.PangoText
+    Slay.Vty
+    Slay.Vty.Inj
+    Slay.Vty.Render
+    Slay.Vty.Prim
 
   build-depends:
     base,
-    text,
-    cairo,
-    pango,
+    vty,
     slay-core,
-    slay-number-double
+    slay-number-int
 
   mixins:
-    slay-number-double (Slay.Number.Double as Slay.Number)
+    slay-number-int (Slay.Number.Int as Slay.Number)
 
   hs-source-dirs:
     src
