@@ -2,5 +2,6 @@ packages:
   number-integer/
   number-double/
   core/
+  combinators/
   cairo/
   gtk/

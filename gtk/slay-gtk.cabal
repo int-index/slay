@@ -28,7 +28,12 @@ library
     text,
     microlens-platform,
     template-haskell,
+    slay-number-double,
+    slay-combinators,
     slay-cairo
+
+  mixins:
+    slay-number-double (Slay.Number.Double as Slay.Number)
 
   hs-source-dirs:
     src

@@ -1,0 +1,11 @@
+name: slay-combinators
+version: 0
+build-type: Simple
+cabal-version: >=2.1
+
+library
+  exposed-modules: Slay.Combinators
+  build-depends: base, slay-core
+  hs-source-dirs: src
+  default-language: Haskell2010
+  ghc-options: -Wall -fno-warn-partial-type-signatures

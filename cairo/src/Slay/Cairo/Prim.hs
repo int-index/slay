@@ -4,11 +4,7 @@ module Slay.Cairo.Prim
     module Slay.Cairo.Prim.Rect,
     module Slay.Cairo.Prim.Curve,
     module Slay.Cairo.Prim.Circle,
-    module Slay.Cairo.Prim.PangoText,
-
-    -- * Layouting combinators
-    LRTB(..),
-    substrate
+    module Slay.Cairo.Prim.PangoText
   ) where
 
 import Slay.Cairo.Prim.Color
@@ -17,32 +13,3 @@ import Slay.Cairo.Prim.Rect
 import Slay.Cairo.Prim.Curve
 import Slay.Cairo.Prim.Circle
 import Slay.Cairo.Prim.PangoText
-
-import Slay.Number
-import Slay.Core
-
-data LRTB a = LRTB
-  { left :: a,
-    right :: a,
-    top :: a,
-    bottom :: a
-  } deriving (Eq, Ord, Show)
-
-substrate ::
-  s -/ e =>
-  LRTB Unsigned ->
-  (Extents -> e) ->
-  Collage s ->
-  Collage s
-substrate pad mkObject collage =
-  collageCompose
-    Offset
-      { offsetX = toSigned $ left pad,
-        offsetY = toSigned $ top pad }
-    (collageSingleton $ mkObject extents)
-    collage
-  where
-    e = collageExtents collage
-    extents = Extents
-      { extentsW = left pad + extentsW e + right pad,
-        extentsH = top pad + extentsH e + bottom pad }
