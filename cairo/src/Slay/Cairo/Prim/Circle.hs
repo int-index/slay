@@ -10,7 +10,6 @@ import qualified Graphics.Rendering.Cairo as Cairo
 import Slay.Number
 import Slay.Core
 
-import Slay.Cairo.Inj
 import Slay.Cairo.Prim.Color
 import Slay.Cairo.Render
 
