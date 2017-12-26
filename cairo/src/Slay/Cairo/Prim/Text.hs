@@ -9,8 +9,8 @@ import Data.Fixed
 import Data.Text
 import Numeric.Natural
 
+import Slay.Core
 import Slay.Cairo.Prim.Color
-import Slay.Cairo.Inj
 
 data FontWeight =
   FontWeightBold | FontWeightNormal

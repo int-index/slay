@@ -10,7 +10,6 @@ import qualified Graphics.Vty as Vty
 import Data.String
 
 import Slay.Core
-import Slay.Vty.Inj
 
 data Prim =
   Prim

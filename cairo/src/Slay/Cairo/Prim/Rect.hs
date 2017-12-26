@@ -11,7 +11,6 @@ import qualified Graphics.Rendering.Cairo as Cairo
 import Slay.Core
 
 import Slay.Cairo.Prim.Color
-import Slay.Cairo.Inj
 import Slay.Cairo.Render
 
 data PrimRect g =

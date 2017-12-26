@@ -13,7 +13,6 @@ import qualified Graphics.Rendering.Cairo as Cairo
 import Slay.Core
 
 import Slay.Cairo.Prim.Color
-import Slay.Cairo.Inj
 import Slay.Cairo.Render
 
 -- from -1 to 1

@@ -8,7 +8,7 @@ import Data.Word
 
 import qualified Graphics.Rendering.Cairo as Cairo
 
-import Slay.Cairo.Inj
+import Slay.Core
 
 data Color =
   -- true color (24bit)

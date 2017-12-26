@@ -14,7 +14,6 @@ library
 
   exposed-modules:
     Slay.Cairo
-    Slay.Cairo.Inj
     Slay.Cairo.Render
     Slay.Cairo.Prim
     Slay.Cairo.Prim.Color
