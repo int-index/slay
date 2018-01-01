@@ -312,15 +312,16 @@ exampleLayout = mkLayout $ Vis $
       substrate (LRTB 1 1 1 1) (rect $ PhaseConst $ rgb 0 0 0) $
       substrate (LRTB 3 3 3 3) (rect $ PhaseConst $ rgb 255 255 255) $
       substrate (LRTB 3 3 3 3) (curve
+        (rgb 0 0 255)
         (PhaseCurvature (Curvature.(subtract 1).(/628)))
         (PhaseColor $ \colorPhase -> rgb colorPhase 130 200)
         (PhaseConst (Direction True False))
         (PhaseWidth ((+1).(/1000)))
-        (Just $ rgb 0 0 255)) $
-      collageCompose (Offset 200 0)
-        (substrate (LRTB 0 0 0 0) (rect $ PhaseConst $ rgb 255 0 0) $ collageSingleton makeCircle)
-        (text (ubuntuFont 12) (PhaseConst $ rgb 0 0 0) msg
-        (PhaseCursor $ \cursor c -> if c then Just cursor else Nothing))
+        (arrowhead (PhaseConst 8) (PhaseConst 8) (PhaseConst 2))) $
+        collageCompose (Offset 200 0)
+          (substrate (LRTB 0 0 0 0) (rect $ PhaseConst $ rgb 255 0 0) $ collageSingleton makeCircle)
+          (text (ubuntuFont 12) (PhaseConst $ rgb 0 0 0) msg
+          (PhaseCursor $ \cursor c -> if c then Just cursor else Nothing))
     msgboxWithExtents msg =
       let msgbox = mkMsgbox msg
       in (msgbox, collageExtents msgbox)
