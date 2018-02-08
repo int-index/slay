@@ -1,7 +1,7 @@
+cabal-version: 2.1
 name: slay-combinators
 version: 0
 build-type: Simple
-cabal-version: >=2.1
 
 library
   exposed-modules: Slay.Combinators

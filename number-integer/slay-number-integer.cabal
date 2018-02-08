@@ -1,3 +1,5 @@
+cabal-version: 2.1
+
 name:
   slay-number-integer
 
@@ -6,9 +8,6 @@ version:
 
 build-type:
   Simple
-
-cabal-version:
-  >=2.0
 
 library
 
