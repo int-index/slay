@@ -10,7 +10,6 @@ import Data.Fixed
 import Numeric.Natural
 import Data.IORef
 import Data.Word
-import Data.Semigroup
 import Data.Foldable
 import Data.List.NonEmpty as NonEmpty
 import Lens.Micro.Platform
