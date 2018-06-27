@@ -5,6 +5,7 @@ module Slay.Number.Int
   , Unsigned
   , unsafeToUnsigned
   , toSigned
+  , ceil
   ) where
 
 import Control.Exception
@@ -37,3 +38,6 @@ instance Num NonNegative where
 instance Bounded NonNegative where
   minBound = NonNegative 0
   maxBound = NonNegative maxBound
+
+ceil :: Integral i => NonNegative -> i
+ceil = fromIntegral . getNonNegative

@@ -17,7 +17,7 @@ resetPhaser :: Phaser -> IO ()
 resetPhaser (Phaser r) = writeIORef r 0
 
 updatePhaser :: Phaser -> IO ()
-updatePhaser (Phaser r) = atomicModifyIORef' r (\x -> (x + 1, ()))
+updatePhaser (Phaser r) = modifyIORef r (+1)
 
 readPhaser :: Phaser -> (Word -> r) -> IO r
 readPhaser (Phaser r) cont = cont <$> readIORef r

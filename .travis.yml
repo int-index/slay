@@ -7,7 +7,7 @@ os:
 sudo: false
 
 before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export PATH=/opt/ghc/8.4.2/bin:/opt/cabal/head/bin:$PATH; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export PATH=/opt/ghc/8.4.3/bin:/opt/cabal/head/bin:$PATH; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; brew install ghc cabal-install gtk+3; fi
   - travis_retry cabal new-update
 
@@ -20,7 +20,7 @@ addons:
     sources:
     - hvr-ghc
     packages:
-    - ghc-8.4.2
+    - ghc-8.4.3
     - cabal-install-head
     - libgtk-3-dev
 

@@ -10,3 +10,6 @@ unsafeToUnsigned = fromInteger
 
 toSigned :: Natural -> Integer
 toSigned = toInteger
+
+ceil :: Integral i => Natural -> i
+ceil = fromIntegral

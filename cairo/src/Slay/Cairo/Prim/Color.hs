@@ -5,6 +5,8 @@ module Slay.Cairo.Prim.Color
   ) where
 
 import Data.Word
+import Data.Hashable
+import GHC.Generics (Generic)
 
 import qualified Graphics.Rendering.Cairo as Cairo
 
@@ -13,7 +15,9 @@ import Slay.Core
 data Color =
   -- true color (24bit)
   RGB Word8 Word8 Word8
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
+
+instance Hashable Color
 
 rgb :: Inj Color a => Word8 -> Word8 -> Word8 -> a
 rgb r g b = inj (RGB r g b)

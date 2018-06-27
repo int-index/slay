@@ -93,7 +93,9 @@ example = do
   widthPhaser <- createPhaser
   curvaturePhaser <- createPhaser
   _ <- flip Gtk.timeoutAdd 5 $ do
-    Gtk.postGUIAsync (Gtk.widgetQueueDraw drawArea)
+    Gtk.widgetQueueDraw drawArea -- Gtk.postGUIAsync not needed because
+                                 -- Gtk.timeoutAdd callback operates inside
+                                 -- the GUI thread
     traverse_ updatePhaser [cursorPhaser, colorPhaser, widthPhaser, curvaturePhaser]
     return True
   _ <- Gtk.on drawArea Gtk.draw $ do

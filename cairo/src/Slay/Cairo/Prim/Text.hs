@@ -7,21 +7,27 @@ module Slay.Cairo.Prim.Text
 
 import Data.Fixed
 import Data.Text
+import Data.Hashable
 import Numeric.Natural
+import GHC.Generics (Generic)
 
 import Slay.Core
 import Slay.Cairo.Prim.Color
 
 data FontWeight =
   FontWeightBold | FontWeightNormal
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
+
+instance Hashable FontWeight
 
 data Font =
   Font
     { fontFamily :: Text,
       fontSize :: Centi,
       fontWeight :: FontWeight
-    } deriving (Eq, Ord, Show)
+    } deriving (Eq, Ord, Show, Generic)
+
+instance Hashable Font
 
 data PrimText g =
   PrimText

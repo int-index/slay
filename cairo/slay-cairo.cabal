@@ -27,6 +27,8 @@ library
     text,
     cairo,
     pango,
+    hashable,
+    lrucaching,
     slay-core,
     slay-number-double
 

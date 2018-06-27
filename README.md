@@ -19,14 +19,14 @@ installed.
 
 Using `apt-get`, install the following packages:
 
-* `ghc-8.4.2` (from `ppa:hvr/ghc`)
+* `ghc-8.4.3` (from `ppa:hvr/ghc`)
 * `cabal-install-head` (from `ppa:hvr/ghc`)
 * `libgtk-3-dev`
 
 Specify the compiler path in `cabal.project.local`:
 
 ```
-with-compiler: /opt/ghc/8.4.2/bin/ghc
+with-compiler: /opt/ghc/8.4.3/bin/ghc
 ```
 
 ### macOS
@@ -61,7 +61,7 @@ Verify that you have the appropriate versions of GHC and Cabal in your `PATH`:
 
 ```
 $ ghc --version
-The Glorious Glasgow Haskell Compilation System, version 8.4.2
+The Glorious Glasgow Haskell Compilation System, version 8.4.3
 
 $ cabal --version
 cabal-install version 2.2.0.0

@@ -8,7 +8,8 @@ import Numeric.Natural
 import Data.Foldable (for_)
 
 import System.IO.Unsafe (unsafePerformIO)
-import qualified Data.Text as Text
+import Data.Text as Text
+import qualified Data.LruCache.IO as LRU
 
 import qualified Graphics.Rendering.Cairo as Cairo
 import qualified Graphics.Rendering.Pango as Pango
@@ -22,7 +23,9 @@ import Slay.Cairo.Render
 data PangoText g =
   PangoText
     { ptextExtents :: Extents,
+      ptextFont :: Font,
       ptextColor :: g Color,
+      ptextContent :: Text,
       ptextCursor :: g (Maybe Natural),
       ptextLayout :: Pango.PangoLayout
     }
@@ -37,26 +40,46 @@ primFontPango font = do
       FontWeightBold -> Pango.WeightBold)
   return pangoFont
 
+layoutCacheHndl :: LRU.LruHandle (Font, Text) (Pango.PangoLayout, Extents)
+layoutCacheHndl = unsafePerformIO (LRU.newLruHandle 1000)
+{-# NOINLINE layoutCacheHndl #-}
+
 primTextPango :: Cairo.Matrix -> PrimText g -> PangoText g
 primTextPango matrix (PrimText font gcolor content cursor) = unsafePerformIO $ do
-  pangoFont <- primFontPango font
-  pangoContext <- Pango.cairoCreateContext Nothing
-  pangoContext `Pango.contextSetFontDescription` pangoFont
-  pangoContext `Pango.contextSetMatrix` matrix
-  pangoLayout <- Pango.layoutEmpty pangoContext
-  pangoLayout `Pango.layoutSetText` Text.unpack content
-  pangoLayout `Pango.layoutSetFontDescription` Just pangoFont
-  (_, Pango.PangoRectangle _ _ w h) <-
-    Pango.layoutGetExtents pangoLayout
-  let extents = Extents (unsafeToUnsigned w) (unsafeToUnsigned h)
-  return $ PangoText extents gcolor cursor pangoLayout
+  (layout, extents) <- LRU.cached layoutCacheHndl (font, content) $ do
+    pangoFont <- primFontPango font
+    pangoContext <- Pango.cairoCreateContext Nothing
+    pangoContext `Pango.contextSetFontDescription` pangoFont
+    pangoContext `Pango.contextSetMatrix` matrix
+    pangoLayout <- Pango.layoutEmpty pangoContext
+    pangoLayout `Pango.layoutSetText` Text.unpack content
+    pangoLayout `Pango.layoutSetFontDescription` Just pangoFont
+    (_, Pango.PangoRectangle _ _ w h) <-
+      Pango.layoutGetExtents pangoLayout
+    let e = Extents (unsafeToUnsigned w) (unsafeToUnsigned h)
+    return (pangoLayout, e)
+  return $ PangoText extents font gcolor content cursor layout
 {-# NOINLINE primTextPango #-}
 
+surfaceCacheHndl :: LRU.LruHandle (Font, Color, Text) Cairo.Surface
+surfaceCacheHndl = unsafePerformIO (LRU.newLruHandle 1000)
+{-# NOINLINE surfaceCacheHndl #-}
+
 renderElementPangoText :: PangoText g -> (forall x. g x -> x) -> Offset -> Cairo.Render ()
-renderElementPangoText (PangoText _ color gcursor pangoLayout) getG (Offset x y) = do
+renderElementPangoText (PangoText (Extents w h) font gcolor content gcursor pangoLayout) getG (Offset x y) = do
+  let color = getG gcolor
+  -- TODO: take the transformation matrix into account, otherwise the text
+  -- is scaled after rendering and becomes blurry
+  surface <- Cairo.liftIO $ LRU.cached surfaceCacheHndl (font, color, content) $ do
+    s <- Cairo.createImageSurface Cairo.FormatARGB32 (ceil w) (ceil h)
+    Cairo.renderWith s $ do
+      setSourceColor color
+      Pango.showLayout pangoLayout
+    return s
+  Cairo.setSourceSurface surface x y
+  Cairo.paint
+  setSourceColor color
   Cairo.moveTo x y
-  setSourceColor (getG color)
-  Pango.showLayout pangoLayout
   for_ (getG gcursor) $ \n -> do
     Pango.PangoRectangle gx gy _ gh <-
       Cairo.liftIO $ Pango.layoutIndexToPos pangoLayout (fromIntegral n)

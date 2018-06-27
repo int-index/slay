@@ -31,3 +31,6 @@ unsafeToUnsigned :: Signed -> Unsigned
 
 -- | Convert the unsigned representation to the signed one.
 toSigned :: Unsigned -> Signed
+
+-- | Get the least integer not less than the provided unsigned number.
+ceil :: Integral i => Unsigned -> i

@@ -5,6 +5,7 @@ module Slay.Number.Double
   , Unsigned
   , unsafeToUnsigned
   , toSigned
+  , ceil
   ) where
 
 import Control.Exception
@@ -38,3 +39,6 @@ instance Fractional NonNegative where
   NonNegative a / NonNegative b = NonNegative (a / b)
   recip (NonNegative a) = NonNegative (recip a)
   fromRational = unsafeToNonNegative . fromRational
+
+ceil :: Integral i => NonNegative -> i
+ceil = ceiling . getNonNegative
