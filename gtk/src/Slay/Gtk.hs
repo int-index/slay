@@ -21,6 +21,9 @@ import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.Rendering.Cairo.Matrix as Matrix
 import qualified Graphics.Rendering.Cairo as Cairo
 
+import Inj
+import Inj.Base ()
+
 import Slay.Cairo
 import Slay.Combinators
 import Slay.Gtk.PreMatrix

@@ -12,6 +12,7 @@ import Data.Foldable (for_)
 
 import qualified Graphics.Rendering.Cairo as Cairo
 
+import Inj
 import Slay.Core
 
 import Slay.Cairo.Prim.Color
@@ -19,6 +20,8 @@ import Slay.Cairo.Render
 
 -- from -1 to 1
 newtype Curvature = Curvature Rational
+
+instance p ~ Curvature => Inj p Curvature
 
 curvatureCoeff :: Curvature -> Signed
 curvatureCoeff (Curvature r) = fromRational r
@@ -29,12 +32,16 @@ data Direction =
       directionTopToBottom :: Bool
     }
 
+instance p ~ Direction => Inj p Direction
+
 data PrimArrowhead g =
   PrimArrowhead
     { arrowheadWidth :: g Unsigned,
       arrowheadLength :: g Unsigned,
       arrowheadDepth :: g Unsigned
     }
+
+instance p ~ PrimArrowhead g => Inj p (PrimArrowhead g)
 
 data PrimCurve g =
   PrimCurve
@@ -46,6 +53,8 @@ data PrimCurve g =
       curveWidth :: g Unsigned,
       curveArrowhead :: Maybe (PrimArrowhead g)
     }
+
+instance p ~ PrimCurve g => Inj p (PrimCurve g)
 
 arrowhead ::
   Inj (PrimArrowhead g) a =>

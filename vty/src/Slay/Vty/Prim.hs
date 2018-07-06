@@ -9,6 +9,7 @@ module Slay.Vty.Prim
 import qualified Graphics.Vty as Vty
 import Data.String
 
+import Inj
 import Slay.Core
 
 data Prim =
@@ -17,6 +18,8 @@ data Prim =
       primImage :: Vty.Image
     }
   deriving (Eq, Show)
+
+instance p ~ Prim => Inj p Prim
 
 image :: Inj Prim a => Vty.Image -> a
 image img = inj (Prim e img)

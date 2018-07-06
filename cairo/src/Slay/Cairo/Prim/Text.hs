@@ -11,7 +11,7 @@ import Data.Hashable
 import Numeric.Natural
 import GHC.Generics (Generic)
 
-import Slay.Core
+import Inj
 import Slay.Cairo.Prim.Color
 
 data FontWeight =
@@ -19,6 +19,8 @@ data FontWeight =
   deriving (Eq, Ord, Show, Generic)
 
 instance Hashable FontWeight
+
+instance p ~ FontWeight => Inj p FontWeight
 
 data Font =
   Font
@@ -28,6 +30,8 @@ data Font =
     } deriving (Eq, Ord, Show, Generic)
 
 instance Hashable Font
+
+instance p ~ Font => Inj p Font
 
 data PrimText g =
   PrimText
@@ -40,6 +44,8 @@ data PrimText g =
 deriving instance (Eq (g (Maybe Natural)), Eq (g (Color))) => Eq (PrimText g)
 deriving instance (Ord (g (Maybe Natural)), Ord (g (Color))) => Ord (PrimText g)
 deriving instance (Show (g (Maybe Natural)), Show (g (Color))) => Show (PrimText g)
+
+instance p ~ PrimText g => Inj p (PrimText g)
 
 text :: Inj (PrimText g) a => Font -> g Color -> Text -> g (Maybe Natural) -> a
 text font color content cursor = inj (PrimText font color content cursor)

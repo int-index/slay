@@ -20,6 +20,8 @@ library
 
   build-depends:
     base,
+    inj,
+    inj-base,
     cairo,
     pango,
     gtk3,

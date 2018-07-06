@@ -24,6 +24,7 @@ library
 
   build-depends:
     base,
+    inj,
     text,
     cairo,
     pango,

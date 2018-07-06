@@ -10,7 +10,7 @@ import GHC.Generics (Generic)
 
 import qualified Graphics.Rendering.Cairo as Cairo
 
-import Slay.Core
+import Inj
 
 data Color =
   -- true color (24bit)
@@ -18,6 +18,8 @@ data Color =
   deriving (Eq, Ord, Show, Generic)
 
 instance Hashable Color
+
+instance p ~ Color => Inj p Color
 
 rgb :: Inj Color a => Word8 -> Word8 -> Word8 -> a
 rgb r g b = inj (RGB r g b)

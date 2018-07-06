@@ -8,6 +8,7 @@ import Data.Foldable (for_)
 
 import qualified Graphics.Rendering.Cairo as Cairo
 
+import Inj
 import Slay.Core
 
 import Slay.Cairo.Prim.Color
@@ -22,6 +23,8 @@ data PrimRect g =
 deriving instance Eq (g (Maybe Color)) => Eq (PrimRect g)
 deriving instance Ord (g (Maybe Color)) => Ord (PrimRect g)
 deriving instance Show (g (Maybe Color)) => Show (PrimRect g)
+
+instance p ~ PrimRect g => Inj p (PrimRect g)
 
 rect :: Inj (PrimRect g) a => g (Maybe Color) -> Extents -> a
 rect background extents = inj (PrimRect extents background)

@@ -18,6 +18,7 @@ library
 
   build-depends:
     base,
+    inj,
     vty,
     slay-core,
     slay-number-int

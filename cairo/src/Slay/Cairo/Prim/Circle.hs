@@ -7,6 +7,7 @@ module Slay.Cairo.Prim.Circle
 
 import qualified Graphics.Rendering.Cairo as Cairo
 
+import Inj
 import Slay.Number
 import Slay.Core
 
@@ -18,6 +19,8 @@ data PrimCircle g =
     { circleColor :: g Color,
       circleRadius :: Unsigned
     }
+
+instance p ~ PrimCircle g => Inj p (PrimCircle g)
 
 circle :: Inj (PrimCircle g) a => g Color -> Unsigned -> a
 circle color radius = inj (PrimCircle color radius)

@@ -88,10 +88,7 @@ module Slay.Core
     Layout(..),
     mkLayout,
     layoutElements,
-    hoistLayout,
-
-    -- * Injection
-    Inj(..)
+    hoistLayout
 
   ) where
 
@@ -102,6 +99,7 @@ import Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import Unsafe.Coerce (unsafeCoerce)
 
+import Inj
 import Slay.Number
 
 -- | The position of a primitive (relative or absolute).
@@ -412,16 +410,6 @@ layoutElements ::
   f (NonEmpty (Offset, a))
 layoutElements view layout =
   collageRepElements <$> runLayout layout view
-
--- | Inject @p@ into a sum type @a@.
-class Inj p a where
-  inj :: p -> a
-
-instance Inj a a where
-  inj = id
-
-instance Inj p a => Inj p (Maybe a) where
-  inj = Just . inj
 
 instance (s -/ e, Inj p e) => Inj p (Collage s) where
   inj = collageSingleton . inj

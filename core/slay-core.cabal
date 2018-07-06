@@ -6,7 +6,7 @@ build-type: Simple
 library
   signatures: Slay.Number
   exposed-modules: Slay.Core
-  build-depends: base
+  build-depends: base, inj
   hs-source-dirs: src
   default-language: Haskell2010
   ghc-options: -Wall -fno-warn-partial-type-signatures
