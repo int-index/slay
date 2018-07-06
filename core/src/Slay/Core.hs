@@ -277,6 +277,18 @@ data CollageRep a =
 --
 newtype Collage s = CollageRep { getCollageRep :: CollageRep (Element s) }
 
+-- | Combine a pair of collages by placing one atop another. No offset. This
+-- is a special case of 'collageCompose'.
+instance Semigroup (Collage a) where
+  c1 <> c2 =
+    CollageRep $ CollageCompose
+      (extentsMax e1 e2)
+      (offsetZero, getCollageRep c1)
+      (offsetZero, getCollageRep c2)
+    where
+      e1 = collageExtents c1
+      e2 = collageExtents c2
+
 getViewOf :: s -/ e => Collage s -> View e (Element s)
 getViewOf (_ :: Collage s) = getView @s
 
@@ -350,7 +362,6 @@ instance (s -/ e, IsString e) => IsString (Collage s) where
 --       +------------+
 -- @
 collageCompose ::
-  s -/ e =>
   Offset ->
   Collage s ->
   Collage s ->
