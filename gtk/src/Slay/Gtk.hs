@@ -46,7 +46,7 @@ withPhase cursor cursorPhase colorPhase curvaturePhase widthPhase = \case
   PhaseCurvature mkX -> mkX curvaturePhase
   PhaseWidth mkX -> mkX widthPhase
 
-type CollageElements = NonEmpty (Offset, SomeRenderElement WithPhase)
+type CollageElements = NonEmpty (Offset, Extents, SomeRenderElement WithPhase)
 
 type CollageElements' = ((CollageElements, Extents), Word8 -> Color)
 

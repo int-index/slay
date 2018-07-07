@@ -14,14 +14,18 @@ renderElements ::
   Foldable f =>
   RenderElement g a =>
   (forall x. g x -> x) ->
-  f (Offset, a) ->
+  f (Offset, Extents, a) ->
   Cairo.Render ()
-renderElements getG = traverse_ (\(v, a) -> renderElement a getG v)
+renderElements getG = traverse_ (renderElement getG)
 
 class RenderElement g a | a -> g where
-  renderElement :: a -> (forall x. g x -> x) -> Offset -> Cairo.Render ()
+  renderElement ::
+    (forall x. g x -> x) ->
+    (Offset, Extents, a) ->
+    Cairo.Render ()
 
 data SomeRenderElement g = forall a. RenderElement g a => SomeRenderElement a
 
 instance RenderElement g (SomeRenderElement g) where
-  renderElement (SomeRenderElement a) = renderElement a
+  renderElement getG (offset, extents, SomeRenderElement a) =
+    renderElement getG (offset, extents, a)

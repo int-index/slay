@@ -310,11 +310,11 @@ collageWidth = extentsW . collageExtents
 collageHeight :: Collage s -> Unsigned
 collageHeight = extentsH . collageExtents
 
--- | Get a non-empty list of primitives with absolute positions,
--- ordered by z-index (ascending).
+-- | Get a non-empty list of primitives with absolute positions and computed
+-- extents, ordered by z-index (ascending).
 collageRepElements ::
   CollageRep a ->
-  NonEmpty (Offset, a)
+  NonEmpty (Offset, Extents, a)
 collageRepElements collageRep =
   NonEmpty.fromList $ collageRepElements' offsetZero collageRep `appEndo` []
 
@@ -323,9 +323,9 @@ type DList a = Endo [a]
 collageRepElements' ::
   Offset ->
   CollageRep a ->
-  DList (Offset, a)
+  DList (Offset, Extents, a)
 collageRepElements' offset = \case
-  CollageSingleton _ a -> Endo ((offset, a):)
+  CollageSingleton extents a -> Endo ((offset, extents, a):)
   CollageCompose _ (o1, c1) (o2, c2) ->
     collageRepElements' (offsetAdd o1 offset) c1 <>
     collageRepElements' (offsetAdd o2 offset) c2
@@ -381,7 +381,7 @@ collageCompose offset c1 c2 =
 collageElements ::
   View e a ->
   (forall s. s -/ e => Collage s) ->
-  NonEmpty (Offset, a)
+  NonEmpty (Offset, Extents, a)
 collageElements view collage =
   runIdentity $ layoutElements view $ mkLayout (Identity collage)
 
@@ -418,7 +418,7 @@ layoutElements ::
   Functor f =>
   View e a ->
   Layout f e ->
-  f (NonEmpty (Offset, a))
+  f (NonEmpty (Offset, Extents, a))
 layoutElements view layout =
   collageRepElements <$> runLayout layout view
 

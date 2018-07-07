@@ -28,8 +28,11 @@ circle color radius = inj (PrimCircle color radius)
 circleExtents :: PrimCircle g -> Extents
 circleExtents c = Extents (2 * r) (2 * r) where r = circleRadius c
 
-renderElementCircle :: PrimCircle g -> (forall x. g x -> x) -> Offset -> Cairo.Render ()
-renderElementCircle (PrimCircle gcolor radius) getG (Offset x y) = do
+renderElementCircle ::
+  (forall x. g x -> x) ->
+  (Offset, Extents, PrimCircle g) ->
+  Cairo.Render ()
+renderElementCircle getG (Offset x y, _, PrimCircle gcolor radius) = do
   setSourceColor $ getG gcolor
   let r = toSigned radius
   Cairo.arc (r + x) (r + y) r 0 (2 * pi)

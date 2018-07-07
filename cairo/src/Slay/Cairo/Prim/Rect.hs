@@ -29,8 +29,8 @@ instance p ~ PrimRect g => Inj p (PrimRect g)
 rect :: Inj (PrimRect g) a => g (Maybe Color) -> Extents -> a
 rect background extents = inj (PrimRect extents background)
 
-renderElementRect :: PrimRect g -> (forall x. g x -> x) -> Offset -> Cairo.Render ()
-renderElementRect (PrimRect (Extents w h) gmbc) getG (Offset x y) = do
+renderElementRect :: (forall x. g x -> x) -> (Offset, Extents, PrimRect g) -> Cairo.Render ()
+renderElementRect getG (Offset x y, Extents w h, PrimRect _ gmbc) = do
   for_ (getG gmbc) $ \bc -> do
     setSourceColor bc
     Cairo.rectangle x y (toSigned w) (toSigned h)

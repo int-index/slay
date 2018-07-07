@@ -87,8 +87,11 @@ angleFromPoints (Offset a b) (Offset c d) = (sine, cosine)
     sine = y / r
     cosine = x / r
 
-renderElementCurve :: PrimCurve g -> (forall x. g x -> x) -> Offset -> Cairo.Render ()
-renderElementCurve (PrimCurve extents mdebug gcurvature gcolor gdirection gwidth marrowhead) getG offset = do
+renderElementCurve ::
+  (forall x. g x -> x) ->
+  (Offset, Extents, PrimCurve g) ->
+  Cairo.Render ()
+renderElementCurve getG (offset, extents, PrimCurve _ mdebug gcurvature gcolor gdirection gwidth marrowhead) = do
   let
     width = getG gwidth
     curvature = getG gcurvature

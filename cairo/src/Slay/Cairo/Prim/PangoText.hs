@@ -65,8 +65,8 @@ surfaceCacheHndl :: LRU.LruHandle (Font, Color, Text) Cairo.Surface
 surfaceCacheHndl = unsafePerformIO (LRU.newLruHandle 1000)
 {-# NOINLINE surfaceCacheHndl #-}
 
-renderElementPangoText :: PangoText g -> (forall x. g x -> x) -> Offset -> Cairo.Render ()
-renderElementPangoText (PangoText (Extents w h) font gcolor content gcursor pangoLayout) getG (Offset x y) = do
+renderElementPangoText :: (forall x. g x -> x) -> (Offset, Extents, PangoText g) -> Cairo.Render ()
+renderElementPangoText getG (Offset x y, Extents w h, PangoText _ font gcolor content gcursor pangoLayout) = do
   let color = getG gcolor
   -- TODO: take the transformation matrix into account, otherwise the text
   -- is scaled after rendering and becomes blurry
