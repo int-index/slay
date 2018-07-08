@@ -1,8 +1,7 @@
 {-# LANGUAGE TypeOperators #-}
 
 module Slay.Combinators
-  ( LRTB(..),
-    substrate,
+  ( substrate,
     vertLeft,
     vertRight,
     horizTop,
@@ -13,13 +12,6 @@ module Slay.Combinators
 
 import Control.Applicative
 import Slay.Core
-
-data LRTB a = LRTB
-  { left :: a,
-    right :: a,
-    top :: a,
-    bottom :: a
-  } deriving (Eq, Ord, Show)
 
 substrate ::
   s -/ e =>

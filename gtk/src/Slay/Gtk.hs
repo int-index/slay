@@ -312,9 +312,9 @@ exampleLayout = mkLayout $ Vis $
       (colorPhase `div` 10)
       (colorPhase `div` 10)
     mkMsgbox msg =
-      substrate (LRTB 5 5 5 5) (rect $ PhaseColor $ \colorPhase -> rgb colorPhase 130 200) $
-      substrate (LRTB 1 1 1 1) (rect $ PhaseConst $ rgb 0 0 0) $
-      substrate (LRTB 3 3 3 3) (rect $ PhaseConst $ rgb 255 255 255) $
+      substrate (LRTB 5 5 5 5) (rect (PhaseConst Nothing) (PhaseColor $ \colorPhase -> rgb colorPhase 130 200)) $
+      substrate (LRTB 1 1 1 1) (rect (PhaseConst Nothing) (PhaseConst $ rgb 0 0 0)) $
+      substrate (LRTB 3 3 3 3) (rect (PhaseConst Nothing) (PhaseConst $ rgb 255 255 255)) $
       substrate (LRTB 3 3 3 3) (curve
         (rgb 0 0 255)
         (PhaseCurvature (Curvature.(subtract 1).(/628)))
@@ -323,16 +323,16 @@ exampleLayout = mkLayout $ Vis $
         (PhaseWidth ((+1).(/1000)))
         (arrowhead (PhaseConst 8) (PhaseConst 8) (PhaseConst 2))) $
         collageCompose (Offset 200 0)
-          (substrate (LRTB 0 0 0 0) (rect $ PhaseConst $ rgb 255 0 0) $ collageSingleton makeCircle)
+          (substrate
+             (LRTB 1 2 3 4)
+             (rect (PhaseConst (Just (LRTB 1 2 3 4))) (PhaseConst $ rgb 255 0 0))
+             (circle (PhaseConst $ rgb 0 255 0) (PhaseWidth $ \w -> Just (10 - (w/300))) 15))
           (text (ubuntuFont 12) (PhaseConst $ rgb 0 0 0) msg
           (PhaseCursor $ \cursor c -> if c then Just cursor else Nothing))
     msgboxWithExtents msg =
       let msgbox = mkMsgbox msg
       in (msgbox, collageExtents msgbox)
   in (msgboxWithExtents, background)
-
-makeCircle :: El
-makeCircle = circle (PhaseConst $ rgb 205 255 215) 15
 
 instance Inj (PrimRect WithPhase) El where
   inj = ElRect
