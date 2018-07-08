@@ -30,6 +30,8 @@ collect the elements with their absolute coordinates using 'layoutElements'.
     AllowAmbiguousTypes,
     ConstraintKinds,
     DeriveFunctor,
+    DeriveFoldable,
+    DeriveTraversable,
     FlexibleInstances,
     FunctionalDependencies,
     GADTs,
@@ -88,7 +90,11 @@ module Slay.Core
     Layout(..),
     mkLayout,
     layoutElements,
-    hoistLayout
+    hoistLayout,
+
+    -- * LRTB
+    LRTB(..)
+
 
   ) where
 
@@ -424,3 +430,16 @@ layoutElements view layout =
 
 instance (s -/ e, Inj p e) => Inj p (Collage s) where
   inj = collageSingleton . inj
+
+-- | A value for each side: left, right, top, bottom.
+data LRTB a = LRTB
+  { left :: a,
+    right :: a,
+    top :: a,
+    bottom :: a
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+instance Applicative LRTB where
+  pure a = LRTB a a a a
+  LRTB lf rf tf bf <*> LRTB la ra ta ba =
+    LRTB (lf la) (rf ra) (tf ta) (bf ba)
