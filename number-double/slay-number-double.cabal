@@ -15,7 +15,7 @@ library
     Slay.Number.Double
 
   build-depends:
-    base
+    base, inj
 
   hs-source-dirs:
     src

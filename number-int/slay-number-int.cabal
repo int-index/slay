@@ -15,7 +15,7 @@ library
     Slay.Number.Int
 
   build-depends:
-    base
+    base, inj
 
   hs-source-dirs:
     src

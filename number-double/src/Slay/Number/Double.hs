@@ -1,4 +1,5 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, FlexibleInstances, FlexibleContexts,
+             MultiParamTypeClasses, UndecidableInstances #-}
 
 module Slay.Number.Double
   ( Signed
@@ -9,9 +10,13 @@ module Slay.Number.Double
   ) where
 
 import Control.Exception
+import Inj
 
 type Signed = Double
 type Unsigned = NonNegative
+
+instance Inj p Double => Inj p NonNegative where
+  inj = unsafeToUnsigned . inj
 
 unsafeToUnsigned :: Double -> NonNegative
 unsafeToUnsigned = unsafeToNonNegative
