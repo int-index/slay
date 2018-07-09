@@ -443,3 +443,6 @@ instance Applicative LRTB where
   pure a = LRTB a a a a
   LRTB lf rf tf bf <*> LRTB la ra ta ba =
     LRTB (lf la) (rf ra) (tf ta) (bf ba)
+
+instance (Inj p' a, p ~ LRTB p') => Inj p (LRTB a) where
+  inj (LRTB l r t b) = LRTB (inj l) (inj r) (inj t) (inj b)
