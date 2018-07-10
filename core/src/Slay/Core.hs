@@ -54,6 +54,7 @@ module Slay.Core
     Offset(..),
     offsetAdd,
     offsetSub,
+    offsetMin,
     offsetMax,
     offsetNegate,
     offsetZero,
@@ -76,6 +77,7 @@ module Slay.Core
     Collage(..),
     collageSingleton,
     collageCompose,
+    collageComposeN,
     collageExtents,
     collageWidth,
     collageHeight,
@@ -98,11 +100,12 @@ module Slay.Core
 
   ) where
 
-import Data.Monoid (Endo(..), (<>))
+import Data.Monoid (Endo(..))
 import Data.Functor.Identity
-import Data.String
-import Data.List.NonEmpty (NonEmpty)
+import Data.String (IsString(..))
+import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
+import Data.Semigroup (sconcat)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Inj
@@ -141,6 +144,14 @@ offsetAdd = offsetOp (+)
 offsetSub :: Offset -> Offset -> Offset
 offsetSub = offsetOp (-)
 
+-- | Offset pointwise minimum.
+--
+-- >>> offsetMin (Offset 10 1) (Offset 2 20)
+-- Offset {offsetX = 2, offsetY = 1}
+--
+offsetMin :: Offset -> Offset -> Offset
+offsetMin = offsetOp min
+
 -- | Offset pointwise maximum.
 --
 -- >>> offsetMax (Offset 10 1) (Offset 2 20)
@@ -164,8 +175,8 @@ offsetNegate (Offset x y) = Offset (negate x) (negate y)
 -- prop> offsetSub a offsetZero = a
 -- prop> offsetSub offsetZero a = offsetNegate a
 --
--- Note that 'offsetZero' is /not/ an identity element for 'offsetMax'
--- becasue an offset can be negative.
+-- Note that 'offsetZero' is /not/ an identity element for 'offsetMin' or
+-- 'offsetMax' becasue an offset can be negative.
 offsetZero :: Offset
 offsetZero = Offset 0 0
 
@@ -249,15 +260,15 @@ data CollageRep a =
   |
   CollageCompose
     Extents -- bounding box
-    (Offset, CollageRep a) -- collage below, with offset[1]
-    (Offset, CollageRep a) -- collage above, with offset[1]
-    -- [1] the offset is from the top left corner of the bounding box and
-    -- is always non-negative
+    (NonEmpty (Offset, CollageRep a))
+    -- 1. elements are ordered by z-index (ascending)
+    -- 2. the offsets are from the top left corner of the bounding box and
+    --    are always non-negative
   deriving (Functor)
 
 -- | A collage of elements. Can be either a single element or a combination of
--- two sub-collages with relative offsets from a point. Structurally, it's a
--- binary tree of layers. After a collage is built, it can be converted to a
+-- several sub-collages with relative offsets from a point. Structurally, it's a
+-- rose tree of layers. After a collage is built, it can be converted to a
 -- non-empty list of elements coupled with their absolute coordinates using the
 -- 'collageElements' function, or it can be turned into a layout using the
 -- 'mkLayout' function.
@@ -287,13 +298,12 @@ newtype Collage s = CollageRep { getCollageRep :: CollageRep (Element s) }
 -- is a special case of 'collageCompose'.
 instance Semigroup (Collage a) where
   c1 <> c2 =
-    CollageRep $ CollageCompose
-      (extentsMax e1 e2)
-      (offsetZero, getCollageRep c1)
-      (offsetZero, getCollageRep c2)
+    CollageRep $ CollageCompose e xs
     where
-      e1 = collageExtents c1
-      e2 = collageExtents c2
+      e = extentsMax (collageExtents c1) (collageExtents c2)
+      xs =
+        (offsetZero, getCollageRep c1) :|
+        (offsetZero, getCollageRep c2) : []
 
 getViewOf :: s -/ e => Collage s -> View e (Element s)
 getViewOf (_ :: Collage s) = getView @s
@@ -302,7 +312,7 @@ getViewOf (_ :: Collage s) = getView @s
 collageRepExtents :: CollageRep a -> Extents
 collageRepExtents = \case
   CollageSingleton e _ -> e
-  CollageCompose e _ _ -> e
+  CollageCompose e _ -> e
 
 -- | Get the bounding box of a collage in constant time.
 collageExtents :: Collage s -> Extents
@@ -332,9 +342,9 @@ collageRepElements' ::
   DList (Offset, Extents, a)
 collageRepElements' offset = \case
   CollageSingleton extents a -> Endo ((offset, extents, a):)
-  CollageCompose _ (o1, c1) (o2, c2) ->
-    collageRepElements' (offsetAdd o1 offset) c1 <>
-    collageRepElements' (offsetAdd o2 offset) c2
+  CollageCompose _ xs ->
+    let toElements (o, c) = collageRepElements' (offsetAdd o offset) c
+    in sconcat $ fmap @NonEmpty toElements xs
 
 -- | Construct a collage from a single element.
 collageSingleton ::
@@ -367,21 +377,75 @@ instance (s -/ e, IsString e) => IsString (Collage s) where
 --       |            |
 --       +------------+
 -- @
+--
+-- This is a special case of 'collageComposeN'.
+--
 collageCompose ::
   Offset ->
   Collage s ->
   Collage s ->
   Collage s
 collageCompose offset c1 c2 =
-    CollageRep $ CollageCompose extents
-      (o1, getCollageRep c1)
-      (o2, getCollageRep c2)
+  collageComposeN $
+    (offsetZero, c1) :|
+    (offset, c2) :
+    []
+
+-- reimplementation of 'traverse1' with t~NonEmpty and f~(acc,) to avoid
+-- a dependency on 'semigroupoids'
+traverse1_NonEmpty_Writer ::
+  forall a b acc.
+  Semigroup acc =>
+  (a -> (acc, b)) ->
+  NonEmpty a ->
+  (acc, NonEmpty b)
+traverse1_NonEmpty_Writer f (a :| as) =
+  let (acc, b) = f a
+  in go acc (b:|) as
   where
-    o1 = offsetMax offsetZero (offsetNegate offset)
-    o2 = offsetMax offsetZero offset
-    e1 = unsafeOffsetExtents o1 `extentsAdd` collageExtents c1
-    e2 = unsafeOffsetExtents o2 `extentsAdd` collageExtents c2
-    extents = extentsMax e1 e2
+    go acc endo [] = (acc, endo [])
+    go acc endo (a' : as') =
+      let (acc', b') = f a'
+      in go (acc <> acc') (endo . (b':)) as'
+
+data CollageComposeAccum = CollageComposeAccum Extents Offset
+
+instance Semigroup CollageComposeAccum where
+  CollageComposeAccum e1 o1 <> CollageComposeAccum e2 o2 =
+    CollageComposeAccum (extentsMax e1 e2) (offsetMin o1 o2)
+
+-- | A generalization of 'collageCompose' to take a non-empty list of
+-- sub-collages instead of a pair.
+--
+-- The offsets are considered relative, so moving all sub-collages by the same
+-- offset has no effect. A consequence of that is that when the input is a
+-- singleton list, the offset is simply discarded.
+--
+collageComposeN :: NonEmpty (Offset, Collage s) -> Collage s
+collageComposeN ((_, collage) :| []) =
+  -- This special case is an optimization and does not affect the semantics.
+  collage
+collageComposeN elements =
+  CollageRep $ CollageCompose resultExtents resultElements
+  where
+    (CollageComposeAccum resultExtents minOffset, resultElements) =
+      traverse1_NonEmpty_Writer processElement elements
+
+    processElement ::
+      (Offset, Collage s) ->
+      (CollageComposeAccum, (Offset, CollageRep (Element s)))
+    processElement (offset, CollageRep collageRep) =
+      let
+        -- normalized offset, guaranteed to be non-negative
+        offset' = offsetSub offset minOffset
+        extents' =
+          extentsAdd
+            (unsafeOffsetExtents offset')
+            (collageRepExtents collageRep)
+        element' = (offset', collageRep)
+        acc = CollageComposeAccum extents' offset
+      in
+        (acc, element')
 
 -- | Collect the elements of a collage (see also: 'collageRepElements').
 collageElements ::
