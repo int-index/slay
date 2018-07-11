@@ -1,7 +1,5 @@
 packages:
-  number-integer/
-  number-int/
-  number-double/
+  non-negative/
   core/
   combinators/
   cairo/

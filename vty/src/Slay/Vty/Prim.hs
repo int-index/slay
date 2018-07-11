@@ -30,7 +30,7 @@ space :: Inj Prim a => Extents -> a
 space e = inj (Prim e img)
   where
     Extents w h = e
-    img = Vty.backgroundFill (toSigned w) (toSigned h)
+    img = Vty.backgroundFill (fromIntegral w) (fromIntegral h)
 
 string :: Inj Prim a => Vty.Attr -> String -> a
 string attr str = image (Vty.string attr str)
@@ -47,5 +47,5 @@ instance IsString Prim where
 vtyImageExtents :: Vty.Image -> Extents
 vtyImageExtents img =
   Extents
-    { extentsW = unsafeToUnsigned (Vty.imageWidth img),
-      extentsH = unsafeToUnsigned (Vty.imageHeight img) }
+    { extentsW = fromIntegral (Vty.imageWidth img),
+      extentsH = fromIntegral (Vty.imageHeight img) }

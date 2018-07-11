@@ -4,7 +4,6 @@ version: 0
 build-type: Simple
 
 library
-  signatures: Slay.Number
   exposed-modules: Slay.Core
   build-depends: base, inj
   hs-source-dirs: src

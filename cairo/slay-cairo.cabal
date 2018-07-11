@@ -30,11 +30,8 @@ library
     pango,
     hashable,
     lrucaching,
-    slay-core,
-    slay-number-double
-
-  mixins:
-    slay-number-double (Slay.Number.Double as Slay.Number)
+    non-negative,
+    slay-core
 
   hs-source-dirs:
     src

@@ -20,11 +20,7 @@ library
     base,
     inj,
     vty,
-    slay-core,
-    slay-number-int
-
-  mixins:
-    slay-number-int (Slay.Number.Int as Slay.Number)
+    slay-core
 
   hs-source-dirs:
     src
