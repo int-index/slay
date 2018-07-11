@@ -10,4 +10,4 @@ renderImageElements [] = picForImage emptyImage
 renderImageElements els = picForLayers (renderElement <$> els)
   where
     renderElement (Offset{..}, image) =
-      translate offsetX offsetY image
+      translate (fromInteger offsetX) (fromInteger offsetY) image

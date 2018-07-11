@@ -56,7 +56,7 @@ primTextPango matrix (PrimText font gcolor content cursor) = unsafePerformIO $ d
     pangoLayout `Pango.layoutSetFontDescription` Just pangoFont
     (_, Pango.PangoRectangle _ _ w h) <-
       Pango.layoutGetExtents pangoLayout
-    let e = Extents (unsafeToUnsigned w) (unsafeToUnsigned h)
+    let e = Extents (ceiling w) (ceiling h)
     return (pangoLayout, e)
   return $ PangoText extents font gcolor content cursor layout
 {-# NOINLINE primTextPango #-}
@@ -71,19 +71,23 @@ renderElementPangoText getG (Offset x y, Extents w h, PangoText _ font gcolor co
   -- TODO: take the transformation matrix into account, otherwise the text
   -- is scaled after rendering and becomes blurry
   surface <- Cairo.liftIO $ LRU.cached surfaceCacheHndl (font, color, content) $ do
-    s <- Cairo.createImageSurface Cairo.FormatARGB32 (ceil w) (ceil h)
+    s <- Cairo.createImageSurface Cairo.FormatARGB32 (fromIntegral w) (fromIntegral h)
     Cairo.renderWith s $ do
       setSourceColor color
       Pango.showLayout pangoLayout
     return s
-  Cairo.setSourceSurface surface x y
+  Cairo.setSourceSurface surface (fromIntegral x) (fromIntegral y)
   Cairo.paint
   setSourceColor color
-  Cairo.moveTo x y
+  Cairo.moveTo (fromIntegral x) (fromIntegral y)
   for_ (getG gcursor) $ \n -> do
     Pango.PangoRectangle gx gy _ gh <-
       Cairo.liftIO $ Pango.layoutIndexToPos pangoLayout (fromIntegral n)
-    Cairo.rectangle (x + gx) (y + gy) 1 (gh)
+    Cairo.rectangle
+      (fromIntegral x + gx)
+      (fromIntegral y + gy)
+      1
+      gh
     Cairo.fill
 
 instance RenderElement g (PangoText g) where

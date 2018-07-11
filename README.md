@@ -77,16 +77,7 @@ $ pkg-config --modversion gtk+-3.0
 
 ## Project structure
 
-The main package is `slay-core`, it contains the layouting engine. The engine
-is abstracted over coordinate types using Backpack. There are a few supplemental
-packages to instantiate coordinates: `slay-number-double`,
-`slay-number-integer`, and `slay-number-int`.
-
-In `slay-core` there are two modules:
-
-* `Slay.Number` is an abstract signature for coordinate types
-* `Slay.Core` is the layouting engine itself
-
+The main package is `slay-core`, it contains the layouting engine.
 The only job of the layouting engine is to position primitives on a
 2-dimensional plane. It doesn't matter whether the primitives are for a
 pixel-based canvas or for a character-based terminal. Therefore, there are many

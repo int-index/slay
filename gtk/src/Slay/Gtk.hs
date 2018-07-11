@@ -7,6 +7,7 @@ module Slay.Gtk
 import Control.Monad.IO.Class
 
 import Data.Fixed
+import Numeric.NonNegative
 import Numeric.Natural
 import Data.IORef
 import Data.Word
@@ -36,9 +37,9 @@ data WithPhase x =
   PhaseCursor (Natural -> Bool -> x) |
   PhaseColor (Word8 -> x) |
   PhaseCurvature (Rational -> x) |
-  PhaseWidth (Unsigned -> x)
+  PhaseWidth (NonNegative Double -> x)
 
-withPhase :: Natural -> Bool -> Word8 -> Rational -> Unsigned -> WithPhase x -> x
+withPhase :: Natural -> Bool -> Word8 -> Rational -> NonNegative Double -> WithPhase x -> x
 withPhase cursor cursorPhase colorPhase curvaturePhase widthPhase = \case
   PhaseConst x -> x
   PhaseCursor mkX -> mkX cursor cursorPhase
@@ -121,7 +122,7 @@ example = do
         Matrix.transformPoint matrix (0, b) :
         Matrix.transformPoint matrix (r, b) : []
         where
-          Extents (toSigned -> r) (toSigned -> b) = vextents
+          Extents (fromIntegral -> r) (fromIntegral -> b) = vextents
       (w, h) = (vr - vl, vb - vt)
       ofs_l = snap $ getExcess (fst viewport') w / 2
       ofs_t = snap $ getExcess (snd viewport') h / 2
@@ -294,7 +295,7 @@ withExtents matrix = \case
   ElRect primRect -> (rectExtents primRect, SomeRenderElement primRect)
   ElText primText ->
     let pangoText = primTextPango matrix primText
-    in (snapExtents $ ptextExtents pangoText, SomeRenderElement pangoText)
+    in (ptextExtents pangoText, SomeRenderElement pangoText)
   ElCurve primCurve -> (curveExtents primCurve, SomeRenderElement primCurve)
   ElCircle circ -> (circleExtents circ, SomeRenderElement circ)
 
@@ -326,7 +327,7 @@ exampleLayout = mkLayout $ Vis $
           (substrate
              (LRTB 1 2 3 4)
              (rect (PhaseConst (Just (LRTB 1 2 3 4))) (PhaseConst $ rgb 255 0 0))
-             (circle (PhaseConst $ rgb 0 255 0) (PhaseWidth $ \w -> Just (10 - (w/300))) 15))
+             (circle (PhaseConst $ rgb 0 255 0) (PhaseWidth $ \w -> Just (10 - (w/300))) 30))
           (text (ubuntuFont 12) (PhaseConst $ rgb 0 0 0) msg
           (PhaseCursor $ \cursor c -> if c then Just cursor else Nothing))
     msgboxWithExtents msg =

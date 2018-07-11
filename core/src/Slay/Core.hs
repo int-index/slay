@@ -5,9 +5,6 @@ expressed using primitives (rectangles, circles, lines of text, etc) and
 combinators (horizontal/vertical composition, layering, centering, etc) and
 compute absolute coordinates for primitives on a 2-dimensional plane.
 
-This module contains the core of the layouting engine. It's parametrized by the
-coordinate types using Backpack.
-
 The basic use of the library is to build a 'Collage' with the '-/'
 constraint in the context, then extract its elements with 'collageElements'.
 
@@ -23,6 +20,12 @@ expressed in terms of these three.
 In case there is a need for a functorial context, instead of using
 'collageElements', turn the collage into a 'Layout' with 'mkLayout', and then
 collect the elements with their absolute coordinates using 'layoutElements'.
+
+We represent coordinates and distances in device units (pixels or characters)
+using types without a fractional component ('Natural' and 'Integer'). The reason
+for this is to guarantee that the resulting collage can be rendered without
+undesired anti-aliasing, as our focus is user interfaces and not abstract
+vector graphics.
 
 -}
 
@@ -47,9 +50,6 @@ collect the elements with their absolute coordinates using 'layoutElements'.
 
 module Slay.Core
   (
-    -- * Coordinates
-    module Slay.Number,
-
     -- * Offset
     Offset(..),
     offsetAdd,
@@ -100,6 +100,7 @@ module Slay.Core
 
   ) where
 
+import Numeric.Natural (Natural)
 import Data.Monoid (Endo(..))
 import Data.Functor.Identity
 import Data.String (IsString(..))
@@ -109,19 +110,18 @@ import Data.Semigroup (sconcat)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Inj
-import Slay.Number
 
 -- | The position of a primitive (relative or absolute).
 data Offset =
   Offset
-    { offsetX :: Signed,
-      offsetY :: Signed
+    { offsetX :: Integer,
+      offsetY :: Integer
     } deriving (Eq, Ord, Show)
 
 -- | Lift a binary numeric operation to offsets,
 -- applying it to both dimensions.
 offsetOp ::
-  (Signed -> Signed -> Signed) ->
+  (Integer -> Integer -> Integer) ->
   (Offset -> Offset -> Offset)
 offsetOp (#) o1 o2 =
   Offset
@@ -184,19 +184,19 @@ offsetZero = Offset 0 0
 -- Precondition: offset is non-negative, otherwise the function
 -- throws @Underflow :: ArithException@.
 unsafeOffsetExtents :: Offset -> Extents
-unsafeOffsetExtents (Offset x y) = Extents (unsafeToUnsigned x) (unsafeToUnsigned y)
+unsafeOffsetExtents (Offset x y) = Extents (fromInteger x) (fromInteger y)
 
 -- | The size of a primitive.
 data Extents =
   Extents
-    { extentsW :: Unsigned,
-      extentsH :: Unsigned
+    { extentsW :: Natural,
+      extentsH :: Natural
     } deriving (Eq, Ord, Show)
 
 -- | Lift a binary numeric operation to extents,
 -- applying it to both dimensions.
 extentsOp ::
-  (Unsigned -> Unsigned -> Unsigned) ->
+  (Natural -> Natural -> Natural) ->
   (Extents -> Extents -> Extents)
 extentsOp (#) o1 o2 =
   Extents
@@ -221,7 +221,7 @@ extentsMax = extentsOp max
 
 -- | Convert extents to an offset.
 extentsOffset :: Extents -> Offset
-extentsOffset (Extents w h) = Offset (toSigned w) (toSigned h)
+extentsOffset (Extents w h) = Offset (toInteger w) (toInteger h)
 
 -- | A view is a function that converts an element of a layout
 -- to a backend-specific primitive and its bounding box.
@@ -332,11 +332,11 @@ collageExtents :: Collage s -> Extents
 collageExtents = collageRepExtents . getCollageRep
 
 -- | Get the width of a collage in constant time.
-collageWidth :: Collage s -> Unsigned
+collageWidth :: Collage s -> Natural
 collageWidth = extentsW . collageExtents
 
 -- | Get the height of a collage in constant time.
-collageHeight :: Collage s -> Unsigned
+collageHeight :: Collage s -> Natural
 collageHeight = extentsH . collageExtents
 
 -- | Get a non-empty list of primitives with absolute positions and computed

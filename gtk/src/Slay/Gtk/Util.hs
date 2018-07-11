@@ -3,7 +3,6 @@ module Slay.Gtk.Util
     getExcess,
     boundingBox,
     snap,
-    snapExtents,
     setBackground
   ) where
 
@@ -31,12 +30,6 @@ boundingBox xs = (l,r,t,b)
 
 snap :: Double -> Double
 snap = fromInteger . ceiling
-
-snap' :: Unsigned -> Unsigned
-snap' = unsafeToUnsigned . snap . toSigned
-
-snapExtents :: Extents -> Extents
-snapExtents (Extents w h) = Extents (snap' w) (snap' h)
 
 setBackground :: Color -> Cairo.Render (Double, Double)
 setBackground background = do

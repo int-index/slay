@@ -4,6 +4,7 @@ module Slay.Cairo.Prim.Rect
     renderElementRect
   ) where
 
+import Numeric.NonNegative
 import Data.Foldable (for_)
 
 import qualified Graphics.Rendering.Cairo as Cairo
@@ -17,17 +18,17 @@ import Slay.Cairo.Render
 data PrimRect g =
   PrimRect
     { rectExtents :: Extents,
-      rectThickness :: g (Maybe (LRTB Unsigned)),
+      rectThickness :: g (Maybe (LRTB (NonNegative Double))),
       rectColor :: g (Maybe Color)
     }
 
-deriving instance (Eq (g (Maybe Color)), Eq (g (Maybe (LRTB Unsigned)))) => Eq (PrimRect g)
-deriving instance (Ord (g (Maybe Color)), Ord (g (Maybe (LRTB Unsigned)))) => Ord (PrimRect g)
-deriving instance (Show (g (Maybe Color)), Show (g (Maybe (LRTB Unsigned)))) => Show (PrimRect g)
+deriving instance (Eq (g (Maybe Color)), Eq (g (Maybe (LRTB (NonNegative Double))))) => Eq (PrimRect g)
+deriving instance (Ord (g (Maybe Color)), Ord (g (Maybe (LRTB (NonNegative Double))))) => Ord (PrimRect g)
+deriving instance (Show (g (Maybe Color)), Show (g (Maybe (LRTB (NonNegative Double))))) => Show (PrimRect g)
 
 instance p ~ PrimRect g => Inj p (PrimRect g)
 
-rect :: Inj (PrimRect g) a => g (Maybe (LRTB Unsigned)) -> g (Maybe Color) -> Extents -> a
+rect :: Inj (PrimRect g) a => g (Maybe (LRTB (NonNegative Double))) -> g (Maybe Color) -> Extents -> a
 rect thickness color extents = inj (PrimRect extents thickness color)
 
 renderElementRect :: (forall x. g x -> x) -> (Offset, Extents, PrimRect g) -> Cairo.Render ()
@@ -37,11 +38,15 @@ renderElementRect getG (Offset x y, Extents w h, PrimRect _ gmthickness gmcolor)
     for_ (getG gmthickness) $ \thck -> do
       Cairo.setFillRule Cairo.FillRuleEvenOdd
       Cairo.rectangle
-        (x + toSigned (left thck))
-        (y + toSigned (top thck))
-        (toSigned w - toSigned (left thck + right thck))
-        (toSigned h - toSigned (top thck + bottom thck))
-    Cairo.rectangle x y (toSigned w) (toSigned h)
+        (fromIntegral x + getNonNegative (left thck))
+        (fromIntegral y + getNonNegative (top thck))
+        (fromIntegral w - getNonNegative (left thck + right thck))
+        (fromIntegral h - getNonNegative (top thck + bottom thck))
+    Cairo.rectangle
+      (fromIntegral x)
+      (fromIntegral y)
+      (fromIntegral w)
+      (fromIntegral h)
     Cairo.fill
 
 instance RenderElement g (PrimRect g) where
