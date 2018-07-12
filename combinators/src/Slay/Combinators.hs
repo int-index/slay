@@ -1,11 +1,15 @@
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeOperators, NamedFieldPuns #-}
 
 module Slay.Combinators
   ( substrate,
-    vertLeft,
-    vertRight,
+    horiz,
     horizTop,
     horizBottom,
+    horizCenter,
+    vert,
+    vertLeft,
+    vertRight,
+    vertCenter,
     insideBox,
     integralDistribExcess
   ) where
@@ -32,55 +36,37 @@ substrate pad mkSub collage =
       { extentsW = left pad + extentsW e + right pad,
         extentsH = top pad + extentsH e + bottom pad }
 
-vertLeft ::
-  s -/ e =>
+horiz, vert ::
+  (Natural -> Natural -> Integer) ->
   Collage s ->
   Collage s ->
   Collage s
-vertLeft c1 c2 = collageCompose offset c1 c2
-  where
-    e1 = collageExtents c1
-    offset = Offset
-      { offsetX = 0,
-        offsetY = toInteger (extentsH e1) }
-
-vertRight ::
-  s -/ e =>
-  Collage s ->
-  Collage s ->
-  Collage s
-vertRight c1 c2 = collageCompose offset c1 c2
+horiz align c1 c2 = collageCompose offset c1 c2
   where
     e1 = collageExtents c1
     e2 = collageExtents c2
-    offset = Offset
-      { offsetX = toInteger (extentsW e1) - toInteger (extentsW e2),
-        offsetY = toInteger (extentsH e1) }
-
-horizTop ::
-  s -/ e =>
-  Collage s ->
-  Collage s ->
-  Collage s
-horizTop c1 c2 = collageCompose offset c1 c2
-  where
-    e1 = collageExtents c1
-    offset = Offset
-      { offsetX = toInteger (extentsW e1),
-        offsetY = 0 }
-
-horizBottom ::
-  s -/ e =>
-  Collage s ->
-  Collage s ->
-  Collage s
-horizBottom c1 c2 = collageCompose offset c1 c2
+    offsetX = toInteger (extentsW e1)
+    offsetY = align (extentsH e1) (extentsH e2)
+    offset = Offset{offsetX, offsetY}
+vert align c1 c2 = collageCompose offset c1 c2
   where
     e1 = collageExtents c1
     e2 = collageExtents c2
-    offset = Offset
-      { offsetX = toInteger (extentsW e1),
-        offsetY = toInteger (extentsH e1) - toInteger (extentsH e2) }
+    offsetX = align (extentsW e1) (extentsW e2)
+    offsetY = toInteger (extentsH e1)
+    offset = Offset{offsetX, offsetY}
+
+horizTop, horizBottom, horizCenter ::
+  Collage s -> Collage s -> Collage s
+horizTop = horiz (\_ _ -> 0)
+horizBottom = horiz (\h1 h2 -> toInteger h1 - toInteger h2)
+horizCenter = horiz (\h1 h2 -> (toInteger h1 - toInteger h2) `div` 2)
+
+vertLeft, vertRight, vertCenter ::
+  Collage s -> Collage s -> Collage s
+vertLeft = vert (\_ _ -> 0)
+vertRight = vert (\w1 w2 -> toInteger w1 - toInteger w2)
+vertCenter = vert (\w1 w2 -> (toInteger w1 - toInteger w2) `div` 2)
 
 insideBox :: (Offset, Extents) -> Offset -> Bool
 insideBox (Offset ax ay, Extents w h) (Offset x y) =

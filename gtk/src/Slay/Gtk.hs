@@ -323,7 +323,7 @@ exampleLayout = mkLayout $ Vis $
         (PhaseConst (Direction True False))
         (PhaseWidth ((+1).(/1000)))
         (arrowhead (PhaseConst 8) (PhaseConst 8) (PhaseConst 2))) $
-        collageCompose (Offset 200 0)
+        horizCenter
           (substrate
              (LRTB 1 2 3 4)
              (rect (PhaseConst (Just (LRTB 1 2 3 4))) (PhaseConst $ rgb 255 0 0))
