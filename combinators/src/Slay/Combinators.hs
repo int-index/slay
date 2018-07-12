@@ -15,17 +15,16 @@ import Control.Applicative
 import Slay.Core
 
 substrate ::
-  s -/ e =>
   LRTB Natural ->
-  (Extents -> e) ->
+  (Extents -> Collage s) ->
   Collage s ->
   Collage s
-substrate pad mkObject collage =
+substrate pad mkSub collage =
   collageCompose
     Offset
       { offsetX = toInteger $ left pad,
         offsetY = toInteger $ top pad }
-    (collageSingleton $ mkObject extents)
+    (mkSub extents)
     collage
   where
     e = collageExtents collage
