@@ -13,6 +13,7 @@ library
 
   exposed-modules:
     Slay.Cairo
+    Slay.Cairo.Element
     Slay.Cairo.Render
     Slay.Cairo.Prim
     Slay.Cairo.Prim.Color
@@ -20,7 +21,6 @@ library
     Slay.Cairo.Prim.Text
     Slay.Cairo.Prim.Curve
     Slay.Cairo.Prim.Circle
-    Slay.Cairo.Prim.PangoText
 
   build-depends:
     base,

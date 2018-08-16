@@ -4,7 +4,6 @@ module Slay.Cairo.Prim
     module Slay.Cairo.Prim.Rect,
     module Slay.Cairo.Prim.Curve,
     module Slay.Cairo.Prim.Circle,
-    module Slay.Cairo.Prim.PangoText
   ) where
 
 import Slay.Cairo.Prim.Color
@@ -12,4 +11,3 @@ import Slay.Cairo.Prim.Text
 import Slay.Cairo.Prim.Rect
 import Slay.Cairo.Prim.Curve
 import Slay.Cairo.Prim.Circle
-import Slay.Cairo.Prim.PangoText

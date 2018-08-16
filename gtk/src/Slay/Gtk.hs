@@ -22,7 +22,6 @@ import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.Rendering.Cairo.Matrix as Matrix
 import qualified Graphics.Rendering.Cairo as Cairo
 
-import Inj
 import Inj.Base ()
 
 import Slay.Cairo
@@ -47,7 +46,7 @@ withPhase cursor cursorPhase colorPhase curvaturePhase widthPhase = \case
   PhaseCurvature mkX -> mkX curvaturePhase
   PhaseWidth mkX -> mkX widthPhase
 
-type CollageElements = NonEmpty (Offset, Extents, SomeRenderElement WithPhase)
+type CollageElements = NonEmpty (Positioned (CairoElement WithPhase))
 
 type CollageElements' = ((CollageElements, Extents), Word8 -> Color)
 
@@ -58,9 +57,6 @@ data AppState = AppState
     appStatePreMatrix :: CachedPreMatrix,
     appStateCollageElements :: CollageElements'
   }
-
-appStateMatrix :: AppState -> Cairo.Matrix
-appStateMatrix = cpmMatrix1 . appStatePreMatrix
 
 appStateCursorL :: Lens' AppState Natural
 appStateCursorL = lens appStateCursor (\app x -> app { appStateCursor = x })
@@ -82,16 +78,20 @@ example = do
     , Gtk.ScrollMask
     ]
   let
-    mkElements :: Cairo.Matrix -> Text -> CollageElements'
-    mkElements matrix label =
-      case layoutElements (withExtents matrix) exampleLayout of
-        Vis (mkElements', background) -> (mkElements' label, background)
+    mkElements :: Text -> CollageElements'
+    mkElements label =
+      let
+        (mkCollage, background) = exampleLayout
+        (collage, vextents) = mkCollage label
+        cElements = collageElements offsetZero collage
+      in 
+        ((cElements, vextents), background)
   appStateRef <- newIORef $ fix $ \this ->
     AppState
       { appStateLabel = "Source",
         appStateCursor = 0,
         appStatePreMatrix = cachedPreMatrix $ PreMatrix 1 0 (0, 0),
-        appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this) }
+        appStateCollageElements = mkElements (appStateLabel this) }
   cursorPhaser <- createPhaser
   colorPhaser <- createPhaser
   widthPhaser <- createPhaser
@@ -154,7 +154,7 @@ example = do
             (pre, post) = Text.splitAt (fromIntegral cursor) (appStateLabel appState)
             appState' = fix $ \this -> appState
               { appStateLabel = pre <> Text.drop 1 post,
-                appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this)
+                appStateCollageElements = mkElements (appStateLabel this)
               }
           in
             (appState', ())
@@ -169,7 +169,7 @@ example = do
             appState' = fix $ \this -> appState
               { appStateLabel = lbl',
                 appStateCursor = if Text.null pre then cursor else cursor - 1,
-                appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this)
+                appStateCollageElements = mkElements (appStateLabel this)
               }
           in
             (appState', ())
@@ -184,7 +184,7 @@ example = do
             appState' = fix $ \this -> appState
               { appStateLabel = lbl',
                 appStateCursor = cursor + 1,
-                appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this)
+                appStateCollageElements = mkElements (appStateLabel this)
               }
           in
             (appState', ())
@@ -207,7 +207,7 @@ example = do
               else pmOffsetL .~ (0, 0)
             appState' = fix $ \this -> appState
               { appStatePreMatrix = cachedPreMatrix preMatrix',
-                appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this)
+                appStateCollageElements = mkElements (appStateLabel this)
               }
           in
             (appState', ())
@@ -226,7 +226,7 @@ example = do
             appState' = if Gtk.Control `elem` mods
               then fix $ \this -> appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmScaleL %~ (+0.15),
-                  appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this)
+                  appStateCollageElements = mkElements (appStateLabel this)
                 }
               else appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmOffsetL . _2 %~ (+5)
@@ -241,7 +241,7 @@ example = do
             appState' = if Gtk.Control `elem` mods
               then fix $ \this -> appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmScaleL %~ subtract 0.15,
-                  appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this)
+                  appStateCollageElements = mkElements (appStateLabel this)
                 }
               else appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmOffsetL . _2 %~ subtract 5
@@ -256,7 +256,7 @@ example = do
             appState' = if Gtk.Control `elem` mods
               then fix $ \this -> appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmRotateL %~ pred,
-                  appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this)
+                  appStateCollageElements = mkElements (appStateLabel this)
                 }
               else appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmOffsetL . _1 %~ (+5)
@@ -271,7 +271,7 @@ example = do
             appState' = if Gtk.Control `elem` mods
               then fix $ \this -> appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmRotateL %~ succ,
-                  appStateCollageElements = mkElements (appStateMatrix this) (appStateLabel this)
+                  appStateCollageElements = mkElements (appStateLabel this)
                 }
               else appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmOffsetL . _1 %~ subtract 5
@@ -288,25 +288,11 @@ example = do
   Gtk.widgetShowAll win
   Gtk.mainGUI
 
-data El = ElRect (PrimRect WithPhase) | ElText (PrimText WithPhase) | ElCurve (PrimCurve WithPhase) | ElCircle (PrimCircle WithPhase)
-
-withExtents :: Cairo.Matrix -> El -> (Extents, SomeRenderElement WithPhase)
-withExtents matrix = \case
-  ElRect primRect -> (rectExtents primRect, SomeRenderElement primRect)
-  ElText primText ->
-    let pangoText = primTextPango matrix primText
-    in (ptextExtents pangoText, SomeRenderElement pangoText)
-  ElCurve primCurve -> (curveExtents primCurve, SomeRenderElement primCurve)
-  ElCircle circ -> (circleExtents circ, SomeRenderElement circ)
-
 ubuntuFont :: Centi -> Font
 ubuntuFont size = Font "Ubuntu" size FontWeightNormal
 
-newtype Vis a = Vis (Text -> (a, Extents), Word8 -> Color)
-  deriving (Functor)
-
-exampleLayout :: Layout Vis El
-exampleLayout = mkLayout $ Vis $
+exampleLayout :: (Text -> (Collage (CairoElement WithPhase), Extents), Word8 -> Color)
+exampleLayout =
   let
     background colorPhase = RGB
       (colorPhase `div` 10)
@@ -334,15 +320,3 @@ exampleLayout = mkLayout $ Vis $
       let msgbox = mkMsgbox msg
       in (msgbox, collageExtents msgbox)
   in (msgboxWithExtents, background)
-
-instance Inj (PrimRect WithPhase) El where
-  inj = ElRect
-
-instance Inj (PrimText WithPhase) El where
-  inj = ElText
-
-instance Inj (PrimCurve WithPhase) El where
-  inj = ElCurve
-
-instance Inj (PrimCircle WithPhase) El where
-  inj = ElCircle

@@ -1,7 +1,6 @@
 module Slay.Cairo.Prim.Text
   ( FontWeight(..),
     Font(..),
-    PrimText(..),
     text
   ) where
 
@@ -10,8 +9,17 @@ import Data.Text
 import Data.Hashable
 import Numeric.Natural
 import GHC.Generics (Generic)
+import Data.Foldable (for_)
+import System.IO.Unsafe (unsafePerformIO)
+import qualified Data.LruCache.IO as LRU
+import Data.Text as Text
+
+import qualified Graphics.Rendering.Cairo as Cairo
+import qualified Graphics.Rendering.Pango as Pango
 
 import Inj
+import Slay.Core
+import Slay.Cairo.Element
 import Slay.Cairo.Prim.Color
 
 data FontWeight =
@@ -33,19 +41,77 @@ instance Hashable Font
 
 instance p ~ Font => Inj p Font
 
-data PrimText g =
-  PrimText
-    { textFont :: Font,
-      textColor :: g Color,
-      textContent :: Text,
-      textCursor :: g (Maybe Natural)
-    }
+text ::
+  forall g a.
+  Inj (CairoElement g) a =>
+  Font ->
+  g Color ->
+  Text ->
+  g (Maybe Natural) ->
+  a
+text font gcolor content gcursor =
+  inj CairoElement
+    { cairoElementExtents = extents,
+      cairoElementRender = render }
+  where
+    (extents, pangoLayout) = primTextPango font content
 
-deriving instance (Eq (g (Maybe Natural)), Eq (g (Color))) => Eq (PrimText g)
-deriving instance (Ord (g (Maybe Natural)), Ord (g (Color))) => Ord (PrimText g)
-deriving instance (Show (g (Maybe Natural)), Show (g (Color))) => Show (PrimText g)
+    render :: Offset -> (forall x. g x -> x) -> Cairo.Render ()
+    render (Offset x y) getG = do
+      let Extents w h = extents
+      let color = getG gcolor
+      -- TODO: take the transformation matrix into account, otherwise the text
+      -- is scaled after rendering and becomes blurry
+      surface <- Cairo.liftIO $ LRU.cached surfaceCacheHndl (font, color, content) $ do
+        s <- Cairo.createImageSurface Cairo.FormatARGB32 (fromIntegral w) (fromIntegral h)
+        Cairo.renderWith s $ do
+          setSourceColor color
+          Pango.showLayout pangoLayout
+        return s
+      Cairo.setSourceSurface surface (fromIntegral x) (fromIntegral y)
+      Cairo.paint
+      setSourceColor color
+      Cairo.moveTo (fromIntegral x) (fromIntegral y)
+      for_ (getG gcursor) $ \n -> do
+        Pango.PangoRectangle gx gy _ gh <-
+          Cairo.liftIO $ Pango.layoutIndexToPos pangoLayout (fromIntegral n)
+        Cairo.rectangle
+          (fromIntegral x + gx)
+          (fromIntegral y + gy)
+          1
+          gh
+        Cairo.fill
 
-instance p ~ PrimText g => Inj p (PrimText g)
+primFontPango :: Font -> IO Pango.FontDescription
+primFontPango font = do
+  pangoFont <- Pango.fontDescriptionNew
+  pangoFont `Pango.fontDescriptionSetFamily` Text.unpack (fontFamily font)
+  pangoFont `Pango.fontDescriptionSetSize` realToFrac (fontSize font)
+  pangoFont `Pango.fontDescriptionSetWeight` (case fontWeight font of
+      FontWeightNormal -> Pango.WeightNormal
+      FontWeightBold -> Pango.WeightBold)
+  return pangoFont
 
-text :: Inj (PrimText g) a => Font -> g Color -> Text -> g (Maybe Natural) -> a
-text font color content cursor = inj (PrimText font color content cursor)
+layoutCacheHndl :: LRU.LruHandle (Font, Text) (Extents, Pango.PangoLayout)
+layoutCacheHndl = unsafePerformIO (LRU.newLruHandle 1000)
+{-# NOINLINE layoutCacheHndl #-}
+
+primTextPango :: Font -> Text -> (Extents, Pango.PangoLayout)
+primTextPango font content = unsafePerformIO $ do
+  LRU.cached layoutCacheHndl (font, content) $ do
+    pangoFont <- primFontPango font
+    pangoContext <- Pango.cairoCreateContext Nothing
+    pangoContext `Pango.contextSetFontDescription` pangoFont
+    -- pangoContext `Pango.contextSetMatrix` matrix
+    pangoLayout <- Pango.layoutEmpty pangoContext
+    pangoLayout `Pango.layoutSetText` Text.unpack content
+    pangoLayout `Pango.layoutSetFontDescription` Just pangoFont
+    (_, Pango.PangoRectangle _ _ w h) <-
+      Pango.layoutGetExtents pangoLayout
+    let e = Extents (ceiling w) (ceiling h)
+    return (e, pangoLayout)
+{-# NOINLINE primTextPango #-}
+
+surfaceCacheHndl :: LRU.LruHandle (Font, Color, Text) Cairo.Surface
+surfaceCacheHndl = unsafePerformIO (LRU.newLruHandle 1000)
+{-# NOINLINE surfaceCacheHndl #-}

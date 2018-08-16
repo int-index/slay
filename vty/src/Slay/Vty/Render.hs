@@ -5,9 +5,9 @@ module Slay.Vty.Render
 import Graphics.Vty as Vty
 import Slay.Core
 
-renderImageElements :: [(Offset, Image)] -> Picture
+renderImageElements :: [Positioned Image] -> Picture
 renderImageElements [] = picForImage emptyImage
 renderImageElements els = picForLayers (renderElement <$> els)
   where
-    renderElement (Offset{..}, image) =
+    renderElement (At Offset{..} image) =
       translate (fromInteger offsetX) (fromInteger offsetY) image
