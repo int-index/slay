@@ -60,6 +60,9 @@ module Slay.Core
     offsetZero,
     unsafeOffsetExtents,
 
+    -- * Positioned
+    Positioned(..),
+
     -- * Extents
     Extents(..),
     extentsAdd,
@@ -87,6 +90,7 @@ module Slay.Core
     CollageRep(),
     collageRepElements,
     collageRepExtents,
+    collageRepComposeN,
 
     -- * Layout
     Layout(..),
@@ -107,6 +111,7 @@ import Data.String (IsString(..))
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Semigroup (sconcat)
+import Data.Coerce (coerce)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Inj
@@ -185,6 +190,10 @@ offsetZero = Offset 0 0
 -- throws @Underflow :: ArithException@.
 unsafeOffsetExtents :: Offset -> Extents
 unsafeOffsetExtents (Offset x y) = Extents (fromInteger x) (fromInteger y)
+
+-- | Positioned item.
+data Positioned a = At { positionedOffset :: Offset, positionedItem :: a }
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 -- | The size of a primitive.
 data Extents =
@@ -292,7 +301,7 @@ data CollageRep a =
 -- stored as a separate field for performance. Therefore, getting the extents of
 -- a collage with the 'collageExtents' function is a constant-time operation.
 --
-newtype Collage s = CollageRep { getCollageRep :: CollageRep (Element s) }
+newtype Collage s = Collage { getCollageRep :: CollageRep (Element s) }
 
 getViewOf :: s -/ e => Collage s -> View e (Element s)
 getViewOf (_ :: Collage s) = getView @s
@@ -344,7 +353,7 @@ collageSingleton m =
   let
     view = getViewOf collage
     (e, a) = view m
-    collage = CollageRep (CollageSingleton e a)
+    collage = Collage (CollageSingleton e a)
   in
     collage
 
@@ -375,9 +384,9 @@ collageCompose ::
   Collage s ->
   Collage s
 collageCompose offset c1 c2 =
-  collageComposeN $
-    (offsetZero, c1) :|
-    (offset, c2) :
+  positionedItem . collageComposeN $
+    At offsetZero c1 :|
+    At offset c2 :
     []
 
 -- reimplementation of 'traverse1' with t~NonEmpty and f~(acc,) to avoid
@@ -403,27 +412,25 @@ instance Semigroup CollageComposeAccum where
   CollageComposeAccum e1 o1 <> CollageComposeAccum e2 o2 =
     CollageComposeAccum (extentsMax e1 e2) (offsetMin o1 o2)
 
--- | A generalization of 'collageCompose' to take a non-empty list of
--- sub-collages instead of a pair.
---
--- The offsets are considered relative, so moving all sub-collages by the same
--- offset has no effect. A consequence of that is that when the input is a
--- singleton list, the offset is simply discarded.
---
-collageComposeN :: NonEmpty (Offset, Collage s) -> Collage s
-collageComposeN ((_, collage) :| []) =
+collageRepComposeN ::
+  NonEmpty (Positioned (CollageRep a)) ->
+  Positioned (CollageRep a)
+collageRepComposeN (positionedCollage :| []) =
   -- This special case is an optimization and does not affect the semantics.
-  collage
-collageComposeN elements =
-  CollageRep $ CollageCompose resultExtents resultElements
+  positionedCollage
+collageRepComposeN elements =
+  At minOffset resultCollage
   where
+    resultCollage =
+      CollageCompose resultExtents resultElements
+
     (CollageComposeAccum resultExtents minOffset, resultElements) =
       traverse1_NonEmpty_Writer processElement elements
 
     processElement ::
-      (Offset, Collage s) ->
-      (CollageComposeAccum, (Offset, CollageRep (Element s)))
-    processElement (offset, CollageRep collageRep) =
+      Positioned (CollageRep a) ->
+      (CollageComposeAccum, (Offset, CollageRep a))
+    processElement (At offset collageRep) =
       let
         -- normalized offset, guaranteed to be non-negative
         offset' = offsetSub offset minOffset
@@ -435,6 +442,19 @@ collageComposeN elements =
         acc = CollageComposeAccum extents' offset
       in
         (acc, element')
+
+-- | A generalization of 'collageCompose' to take a non-empty list of
+-- sub-collages instead of a pair.
+--
+-- Offset common between all elements is factored out into the position of the
+-- resulting collage.
+--
+collageComposeN :: forall s. NonEmpty (Positioned (Collage s)) -> Positioned (Collage s)
+collageComposeN = coerce (collageRepComposeN @(Element s))
+
+instance Semigroup (Positioned (Collage s)) where
+  a <> b = sconcat (a :| b : [])
+  sconcat = collageComposeN
 
 -- | Collect the elements of a collage (see also: 'collageRepElements').
 collageElements ::
