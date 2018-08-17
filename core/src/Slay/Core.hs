@@ -65,6 +65,11 @@ module Slay.Core
     extentsOffset,
     HasExtents(..),
 
+    -- * Margin
+    Margin(..),
+    marginZero,
+    marginMax,
+
     -- * Collage
     Collage,
     collageSingleton,
@@ -73,6 +78,8 @@ module Slay.Core
     collageExtents,
     collageWidth,
     collageHeight,
+    collageMargin,
+    collageWithMargin,
     collageElements,
 
     -- * LRTB
@@ -208,6 +215,30 @@ extentsOffset (Extents w h) = Offset (toInteger w) (toInteger h)
 class HasExtents a where
   extentsOf :: a -> Extents
 
+data Margin =
+  Margin
+    { marginLeft :: Natural,
+      marginRight :: Natural,
+      marginTop :: Natural,
+      marginBottom :: Natural
+    } deriving (Eq, Ord, Show)
+
+marginOp ::
+  (Natural -> Natural -> Natural) ->
+  (Margin -> Margin -> Margin)
+marginOp (#) m1 m2 =
+  Margin
+    { marginLeft = marginLeft m1 # marginLeft m2,
+      marginRight = marginRight m1 # marginRight m2,
+      marginTop = marginTop m1 # marginTop m2,
+      marginBottom = marginBottom m1 # marginBottom m2 }
+
+marginZero :: Margin
+marginZero = Margin 0 0 0 0
+
+marginMax :: Margin -> Margin -> Margin
+marginMax = marginOp max
+
 -- | The elements of a collage.
 data CollageTree a =
   CollageSingleton a |
@@ -243,14 +274,17 @@ data CollageTree a =
 -- a collage with the 'collageExtents' function is a constant-time operation.
 --
 data Collage a =
-  Collage Extents (CollageTree a)
+  Collage Margin Extents (CollageTree a)
 
 -- | Get the bounding box of a collage in constant time.
 collageExtents :: Collage a -> Extents
-collageExtents (Collage e _) = e
+collageExtents (Collage _ e _) = e
+
+collageMargin :: Collage a -> Margin
+collageMargin (Collage m _ _) = m
 
 collageTree :: Collage a -> CollageTree a
-collageTree (Collage _ c) = c
+collageTree (Collage _ _ c) = c
 
 -- | Get the width of a collage in constant time.
 collageWidth :: Collage a -> Natural
@@ -259,6 +293,12 @@ collageWidth = extentsW . collageExtents
 -- | Get the height of a collage in constant time.
 collageHeight :: Collage a -> Natural
 collageHeight = extentsH . collageExtents
+
+collageWithMargin :: Margin -> Collage a -> Collage a
+collageWithMargin m' (Collage m e t) =
+  -- We use 'marginMax' because we do not want to accidentally erase the margin
+  -- computed from subcollages in the 'CollageCompose' case.
+  Collage (marginMax m' m) e t
 
 -- | Get a non-empty list of primitives with absolute positions and computed
 -- extents, ordered by z-index (ascending).
@@ -287,7 +327,7 @@ collageTreeElements offset = \case
 collageSingleton :: HasExtents a => a -> Collage a
 collageSingleton a =
   let extents = extentsOf a
-  in Collage extents (CollageSingleton a)
+  in Collage marginZero extents (CollageSingleton a)
 
 instance (HasExtents a, IsString a) => IsString (Collage a) where
   fromString = collageSingleton . fromString
@@ -338,11 +378,48 @@ traverse1_NonEmpty_Writer f (a :| as) =
       let (acc', b') = f a'
       in go (acc <> acc') (endo . (b':)) as'
 
-data CollageComposeAccum = CollageComposeAccum Extents Offset
+data MarginPoints =
+  MarginPoints
+    Offset
+    Offset
+
+instance Semigroup MarginPoints where
+  MarginPoints p1 q1 <> MarginPoints p2 q2 =
+    MarginPoints (offsetMin p1 p2) (offsetMax q1 q2)
+
+toMarginPoints :: Offset -> Extents -> Margin -> MarginPoints
+toMarginPoints offset extents margin = MarginPoints p q
+  where
+    p = offsetAdd offset marginTopLeftOffset
+    q = offsetAdd offset marginBottomRightOffset
+    marginTopLeftOffset =
+      Offset
+        { offsetX = (negate . toInteger) (marginLeft margin),
+          offsetY = (negate . toInteger) (marginTop margin) }
+    marginBottomRightOffset =
+      Offset
+        { offsetX = toInteger (marginRight margin) + toInteger (extentsW extents),
+          offsetY = toInteger (marginBottom margin) + toInteger (extentsH extents) }
+
+fromMarginPoints :: Extents -> MarginPoints -> Margin
+fromMarginPoints extents marginPoints =
+  Margin
+    { marginLeft = (intNatCeil . negate) (offsetX p),
+      marginRight = intNatCeil (offsetX q - offsetX eOffset),
+      marginTop = (intNatCeil . negate) (offsetY p),
+      marginBottom = intNatCeil (offsetY q - offsetY eOffset) }
+  where
+    eOffset = extentsOffset extents
+    MarginPoints p q = marginPoints
+
+    intNatCeil :: Integer -> Natural
+    intNatCeil = fromInteger . max 0
+
+data CollageComposeAccum = CollageComposeAccum MarginPoints Extents Offset
 
 instance Semigroup CollageComposeAccum where
-  CollageComposeAccum e1 o1 <> CollageComposeAccum e2 o2 =
-    CollageComposeAccum (extentsMax e1 e2) (offsetMin o1 o2)
+  CollageComposeAccum mp1 e1 o1 <> CollageComposeAccum mp2 e2 o2 =
+    CollageComposeAccum (mp1 <> mp2) (extentsMax e1 e2) (offsetMin o1 o2)
 
 -- | A generalization of 'collageCompose' to take a non-empty list of
 -- sub-collages instead of a pair.
@@ -360,9 +437,11 @@ collageComposeN elements =
   At minOffset resultCollage
   where
     resultCollage =
-      Collage resultExtents (CollageCompose resultElements)
+      Collage resultMargin resultExtents (CollageCompose resultElements)
 
-    (CollageComposeAccum resultExtents minOffset, resultElements) =
+    resultMargin = fromMarginPoints resultExtents resultMarginPoints
+
+    (CollageComposeAccum resultMarginPoints resultExtents minOffset, resultElements) =
       traverse1_NonEmpty_Writer processElement elements
 
     processElement ::
@@ -370,14 +449,14 @@ collageComposeN elements =
       (CollageComposeAccum, (Offset, CollageTree a))
     processElement (At offset collage) =
       let
+        extents = collageExtents collage
+        margin = collageMargin collage
         -- normalized offset, guaranteed to be non-negative
         offset' = offsetSub offset minOffset
-        extents' =
-          extentsAdd
-            (unsafeOffsetExtents offset')
-            (collageExtents collage)
+        extents' = extentsAdd (unsafeOffsetExtents offset') extents
+        marginPoints = toMarginPoints offset' extents margin
         element' = (offset', collageTree collage)
-        acc = CollageComposeAccum extents' offset
+        acc = CollageComposeAccum marginPoints extents' offset
       in
         (acc, element')
 
