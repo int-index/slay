@@ -313,9 +313,11 @@ exampleLayout =
           (substrate
              (LRTB 1 2 3 4)
              (rect (PhaseConst (Just (LRTB 1 2 3 4))) (PhaseConst $ rgb 255 0 0))
-             (circle (PhaseConst $ rgb 0 255 0) (PhaseWidth $ \w -> Just (10 - (w/300))) 30))
-          (text (ubuntuFont 12) (PhaseConst $ rgb 0 0 0) msg
-          (PhaseCursor $ \cursor c -> if c then Just cursor else Nothing))
+             (collageWithMargin (Margin 0 30 0 0)
+               (circle (PhaseConst $ rgb 0 255 0) (PhaseWidth $ \w -> Just (10 - (w/300))) 30)))
+          (collageWithMargin (Margin 20 0 0 0)
+            (text (ubuntuFont 12) (PhaseConst $ rgb 0 0 0) msg
+            (PhaseCursor $ \cursor c -> if c then Just cursor else Nothing)))
     msgboxWithExtents msg =
       let msgbox = mkMsgbox msg
       in (msgbox, collageExtents msgbox)

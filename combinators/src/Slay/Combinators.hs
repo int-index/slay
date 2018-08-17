@@ -45,15 +45,21 @@ horiz align c1 c2 = collageCompose offset c1 c2
   where
     e1 = collageExtents c1
     e2 = collageExtents c2
-    offsetX = toInteger (extentsW e1)
+    m1 = collageMargin c1
+    m2 = collageMargin c2
+    marginX = max (marginRight m1) (marginLeft m2)
+    offsetX = toInteger (extentsW e1) + toInteger marginX
     offsetY = align (extentsH e1) (extentsH e2)
     offset = Offset{offsetX, offsetY}
 vert align c1 c2 = collageCompose offset c1 c2
   where
     e1 = collageExtents c1
     e2 = collageExtents c2
+    m1 = collageMargin c1
+    m2 = collageMargin c2
+    marginY = max (marginBottom m1) (marginTop m2)
     offsetX = align (extentsW e1) (extentsW e2)
-    offsetY = toInteger (extentsH e1)
+    offsetY = toInteger (extentsH e1) + toInteger marginY
     offset = Offset{offsetX, offsetY}
 
 horizTop, horizBottom, horizCenter ::
