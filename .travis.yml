@@ -8,7 +8,7 @@ env:
   - HC=ghc844
 
 before_install:
-  - curl https://raw.githubusercontent.com/int-index/nix-cabal/master/nix-cabal -o nix-cabal && chmod u+x nix-cabal
+  - curl https://raw.githubusercontent.com/monadfix/nix-cabal/master/nix-cabal -o nix-cabal && chmod u+x nix-cabal
   - travis_retry ./nix-cabal new-update
 
 script:
