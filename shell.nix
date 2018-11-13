@@ -4,7 +4,7 @@ with import <nixpkgs> { };
 stdenv.mkDerivation rec {
   name = "slay";
   buildInputs = [
-    haskell.compiler.ghc843
+    haskell.compiler.ghc844
     pkgs.zlib
     pkgs.cabal-install
     pkgs.pkgconfig
