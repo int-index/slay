@@ -4,45 +4,8 @@
 
 ## Building instructions
 
-The supported operating systems are NixOS, Ubuntu, and macOS. Building on
-Windows should be possible, but it's not tested (AppVeyor integration would be
-welcome).
-
-### NixOS
-
-* `nix-shell`
-
-This can be also used on a different OS provided the `nix` package manager is
-installed.
-
-### Ubuntu
-
-Using `apt-get`, install the following packages:
-
-* `ghc-8.4.3` (from `ppa:hvr/ghc`)
-* `cabal-install-head` (from `ppa:hvr/ghc`)
-* `libgtk-3-dev`
-
-Specify the compiler path in `cabal.project.local`:
-
 ```
-with-compiler: /opt/ghc/8.4.3/bin/ghc
-```
-
-### macOS
-
-Using `homebrew`, install the following packages:
-
-* `ghc`
-* `cabal-install`
-* `gtk+3`
-
-### Common
-
-Building:
-
-```
-cabal new-build all
+./nix-cabal new-build all
 ```
 
 To achieve reproducible builds the versions of Haskell dependencies are
@@ -53,26 +16,6 @@ Specify additional build options in `cabal.project.local`:
 ```
 profiling: True
 documentation: True
-```
-
-### Troubleshooting
-
-Verify that you have the appropriate versions of GHC and Cabal in your `PATH`:
-
-```
-$ ghc --version
-The Glorious Glasgow Haskell Compilation System, version 8.4.3
-
-$ cabal --version
-cabal-install version 2.2.0.0
-compiled using version 2.2.0.1 of the Cabal library
-```
-
-Verify that you have the development headers for GTK+ 3 installed:
-
-```
-$ pkg-config --modversion gtk+-3.0
-3.22.29
 ```
 
 ## Project structure
