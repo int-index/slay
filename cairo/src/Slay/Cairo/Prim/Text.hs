@@ -62,12 +62,15 @@ text font gcolor content gcursor =
       let color = getG gcolor
       -- TODO: take the transformation matrix into account, otherwise the text
       -- is scaled after rendering and becomes blurry
-      surface <- Cairo.liftIO $ LRU.cached surfaceCacheHndl (font, color, content) $ do
-        s <- Cairo.createImageSurface Cairo.FormatARGB32 (fromIntegral w) (fromIntegral h)
-        Cairo.renderWith s $ do
-          setSourceColor color
-          Pango.showLayout pangoLayout
-        return s
+      surface <- Cairo.withTargetSurface $ \targetSurface ->
+        Cairo.liftIO $ LRU.cached surfaceCacheHndl (font, color, content) $ do
+          -- TODO: When we know the background color, prefer "ContentColor" without "Alpha" to get
+          -- subpixel antialiasing (instead of grayscale).
+          s <- Cairo.createSimilarSurface targetSurface Cairo.ContentColorAlpha (fromIntegral w) (fromIntegral h)
+          Cairo.renderWith s $ do
+            setSourceColor color
+            Pango.showLayout pangoLayout
+          return s
       Cairo.setSourceSurface surface (fromIntegral x) (fromIntegral y)
       Cairo.paint
       setSourceColor color
