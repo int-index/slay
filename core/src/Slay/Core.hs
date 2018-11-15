@@ -82,6 +82,10 @@ module Slay.Core
     collageWithMargin,
     collageElements,
 
+    -- * Decoration
+    Decoration(..),
+    collageDecorate,
+
     -- * LRTB
     LRTB(..)
 
@@ -322,10 +326,10 @@ collageBuilderSingleton :: a -> CollageBuilder a
 collageBuilderSingleton a =
   CollageBuilder { buildCollage = \offset -> DNonEmpty (At offset a :|) }
 
--- 1. elements are ordered by z-index (ascending)
--- 2. the offsets are from the top left corner of the bounding box of the
---    current subcollage and are always non-negative
-collageBuilderCompose :: NonEmpty (Positioned (CollageBuilder a)) -> CollageBuilder a
+-- Elements are ordered by z-index (ascending)
+collageBuilderCompose ::
+  NonEmpty (Positioned (CollageBuilder a)) ->
+  CollageBuilder a
 collageBuilderCompose xs =
   CollageBuilder
     { buildCollage = \offset ->
@@ -484,6 +488,25 @@ instance Semigroup (Positioned (Collage a)) where
 
 instance (HasExtents a, Inj p a) => Inj p (Collage a) where
   inj = collageSingleton . inj
+
+data Decoration a =
+  DecorationBelow a | DecorationAbove a
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+collageDecorate ::
+  Decoration (Positioned (Collage a)) ->
+  Collage a ->
+  Collage a
+collageDecorate d (Collage m e b) =
+  let
+    toCB = fmap @Positioned collageBuilder
+    bAt0 = At offsetZero b
+    bs = case d of
+      DecorationBelow d' -> toCB d' :| bAt0 : []
+      DecorationAbove d' -> bAt0 :| toCB d' : []
+    b' = collageBuilderCompose bs
+  in
+    Collage m e b'
 
 -- | A value for each side: left, right, top, bottom.
 data LRTB a = LRTB
