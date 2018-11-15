@@ -325,13 +325,13 @@ collageBuilderSingleton a =
 -- 1. elements are ordered by z-index (ascending)
 -- 2. the offsets are from the top left corner of the bounding box of the
 --    current subcollage and are always non-negative
-collageBuilderCompose :: NonEmpty (Offset, CollageBuilder a) -> CollageBuilder a
+collageBuilderCompose :: NonEmpty (Positioned (CollageBuilder a)) -> CollageBuilder a
 collageBuilderCompose xs =
   CollageBuilder
     { buildCollage = \offset ->
         let
-          toElements :: (Offset, CollageBuilder a) -> DNonEmpty (Positioned a)
-          toElements (o, b) = buildCollage b (offsetAdd offset o)
+          toElements :: Positioned (CollageBuilder a) -> DNonEmpty (Positioned a)
+          toElements (At o b) = buildCollage b (offsetAdd offset o)
         in
           foldMap_NonEmpty toElements xs
     }
@@ -464,7 +464,7 @@ collageComposeN elements =
 
     processElement ::
       Positioned (Collage a) ->
-      (CollageComposeAccum, (Offset, CollageBuilder a))
+      (CollageComposeAccum, Positioned (CollageBuilder a))
     processElement (At offset collage) =
       let
         extents = collageExtents collage
@@ -473,7 +473,7 @@ collageComposeN elements =
         offset' = offsetSub offset minOffset
         extents' = extentsAdd (unsafeOffsetExtents offset') extents
         marginPoints = toMarginPoints offset' extents margin
-        element' = (offset', collageBuilder collage)
+        element' = At offset' (collageBuilder collage)
         acc = CollageComposeAccum marginPoints extents' offset
       in
         (acc, element')
