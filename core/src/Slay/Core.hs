@@ -88,9 +88,9 @@ module Slay.Core
   ) where
 
 import Numeric.Natural (Natural)
-import Data.Monoid (Endo(..))
 import Data.String (IsString(..))
 import Data.List.NonEmpty (NonEmpty(..))
+import Data.List (foldl')
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Semigroup (sconcat)
 
@@ -239,20 +239,11 @@ marginZero = Margin 0 0 0 0
 marginMax :: Margin -> Margin -> Margin
 marginMax = marginOp max
 
--- | The elements of a collage.
-data CollageTree a =
-  CollageSingleton a |
-  CollageCompose (NonEmpty (Offset, CollageTree a))
-    -- 1. elements are ordered by z-index (ascending)
-    -- 2. the offsets are from the top left corner of the bounding box of the
-    --    current subcollage and are always non-negative
-
--- | A collage of elements. Can be either a single element or a combination of
--- several sub-collages with relative offsets from a point. Structurally, it's a
--- rose tree of layers. After a collage is built, it can be converted to a
--- non-empty list of elements coupled with their absolute coordinates using the
--- 'collageElements' function, or it can be turned into a layout using the
--- 'mkLayout' function.
+-- | A collage of elements. Can be created from a single element with
+-- 'collageSingleton' or from a combination of several sub-collages with
+-- relative offsets from a point with 'collageComposeN'. After a collage is
+-- built, it can be converted to a non-empty list of elements coupled with
+-- their absolute coordinates using the 'collageElements' function.
 --
 -- Here's a visualisation of a collage with two rectangular elements:
 --
@@ -269,22 +260,21 @@ data CollageTree a =
 -- @
 --
 -- The bounding box (extents) of a collage is a vector from its top-left corner
--- to the bottom-right corner. Although the bounding box can be computed, it's
--- stored as a separate field for performance. Therefore, getting the extents of
--- a collage with the 'collageExtents' function is a constant-time operation.
+-- to the bottom-right corner.
 --
 data Collage a =
-  Collage Margin Extents (CollageTree a)
+  Collage Margin Extents (CollageBuilder a)
 
 -- | Get the bounding box of a collage in constant time.
 collageExtents :: Collage a -> Extents
 collageExtents (Collage _ e _) = e
 
+-- | Get the margin of a collage in constant time.
 collageMargin :: Collage a -> Margin
 collageMargin (Collage m _ _) = m
 
-collageTree :: Collage a -> CollageTree a
-collageTree (Collage _ _ c) = c
+collageBuilder :: Collage a -> CollageBuilder a
+collageBuilder (Collage _ _ b) = b
 
 -- | Get the width of a collage in constant time.
 collageWidth :: Collage a -> Natural
@@ -295,39 +285,59 @@ collageHeight :: Collage a -> Natural
 collageHeight = extentsH . collageExtents
 
 collageWithMargin :: Margin -> Collage a -> Collage a
-collageWithMargin m' (Collage m e t) =
+collageWithMargin m' (Collage m e b) =
   -- We use 'marginMax' because we do not want to accidentally erase the margin
   -- computed from subcollages in the 'CollageCompose' case.
-  Collage (marginMax m' m) e t
+  Collage (marginMax m' m) e b
 
 -- | Get a non-empty list of primitives with absolute positions and computed
 -- extents, ordered by z-index (ascending).
+--
+-- O(n) - linear in the amount of elements.
 --
 -- The input offset is the position for the top-left corner of the collage.
 collageElements ::
   Offset ->
   Collage a ->
   NonEmpty (Positioned a)
-collageElements offset collage =
-  NonEmpty.fromList $ collageTreeElements offset (collageTree collage) `appEndo` []
+collageElements offset (Collage _ _ b) =
+  fromDNonEmpty (buildCollage b offset)
 
-type DList a = Endo [a]
+-- Non-empty difference list
+newtype DNonEmpty a = DNonEmpty ([a] -> NonEmpty a)
 
-collageTreeElements ::
-  Offset ->
-  CollageTree a ->
-  DList (Positioned a)
-collageTreeElements offset = \case
-  CollageSingleton a -> Endo (At offset a:)
-  CollageCompose xs ->
-    let toElements (o, c) = collageTreeElements (offsetAdd o offset) c
-    in sconcat $ fmap @NonEmpty toElements xs
+instance Semigroup (DNonEmpty a) where
+  DNonEmpty f <> DNonEmpty g = DNonEmpty (f . NonEmpty.toList . g)
+
+fromDNonEmpty :: DNonEmpty a -> NonEmpty a
+fromDNonEmpty (DNonEmpty f) = f []
+
+newtype CollageBuilder a =
+  CollageBuilder { buildCollage :: Offset -> DNonEmpty (Positioned a) }
+
+collageBuilderSingleton :: a -> CollageBuilder a
+collageBuilderSingleton a =
+  CollageBuilder { buildCollage = \offset -> DNonEmpty (At offset a :|) }
+
+-- 1. elements are ordered by z-index (ascending)
+-- 2. the offsets are from the top left corner of the bounding box of the
+--    current subcollage and are always non-negative
+collageBuilderCompose :: NonEmpty (Offset, CollageBuilder a) -> CollageBuilder a
+collageBuilderCompose xs =
+  CollageBuilder
+    { buildCollage = \offset ->
+        let
+          toElements :: (Offset, CollageBuilder a) -> DNonEmpty (Positioned a)
+          toElements (o, b) = buildCollage b (offsetAdd offset o)
+        in
+          foldMap_NonEmpty toElements xs
+    }
 
 -- | Construct a collage from a single element.
 collageSingleton :: HasExtents a => a -> Collage a
 collageSingleton a =
   let extents = extentsOf a
-  in Collage marginZero extents (CollageSingleton a)
+  in Collage marginZero extents (collageBuilderSingleton a)
 
 instance (HasExtents a, IsString a) => IsString (Collage a) where
   fromString = collageSingleton . fromString
@@ -360,6 +370,11 @@ collageCompose offset c1 c2 =
     At offsetZero c1 :|
     At offset c2 :
     []
+
+-- reimplementation of 'foldMap1' with t~NonEmpty, to avoid
+-- a dependency on 'semigroupoids'
+foldMap_NonEmpty :: Semigroup s => (a -> s) -> NonEmpty a -> s
+foldMap_NonEmpty f (s :| ss) = foldl' (\acc x -> acc <> f x) (f s) ss
 
 -- reimplementation of 'traverse1' with t~NonEmpty and f~(acc,) to avoid
 -- a dependency on 'semigroupoids'
@@ -437,7 +452,7 @@ collageComposeN elements =
   At minOffset resultCollage
   where
     resultCollage =
-      Collage resultMargin resultExtents (CollageCompose resultElements)
+      Collage resultMargin resultExtents (collageBuilderCompose resultElements)
 
     resultMargin = fromMarginPoints resultExtents resultMarginPoints
 
@@ -446,7 +461,7 @@ collageComposeN elements =
 
     processElement ::
       Positioned (Collage a) ->
-      (CollageComposeAccum, (Offset, CollageTree a))
+      (CollageComposeAccum, (Offset, CollageBuilder a))
     processElement (At offset collage) =
       let
         extents = collageExtents collage
@@ -455,7 +470,7 @@ collageComposeN elements =
         offset' = offsetSub offset minOffset
         extents' = extentsAdd (unsafeOffsetExtents offset') extents
         marginPoints = toMarginPoints offset' extents margin
-        element' = (offset', collageTree collage)
+        element' = (offset', collageBuilder collage)
         acc = CollageComposeAccum marginPoints extents' offset
       in
         (acc, element')
