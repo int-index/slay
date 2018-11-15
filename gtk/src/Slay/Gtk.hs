@@ -84,7 +84,7 @@ example = do
         (mkCollage, background) = exampleLayout
         (collage, vextents) = mkCollage label
         cElements = collageElements offsetZero collage
-      in 
+      in
         ((cElements, vextents), background)
   appStateRef <- newIORef $ fix $ \this ->
     AppState
@@ -298,6 +298,11 @@ exampleLayout =
       (colorPhase `div` 10)
       (colorPhase `div` 10)
       (colorPhase `div` 10)
+    onyellowbkg =
+      decorateMargin . DecorationAbove $
+        rect (PhaseConst (Just (LRTB 1 1 1 1))) (PhaseConst $ rgb 100 100 0)
+    dmbkg = decorateMargin . DecorationBelow $
+      rect (PhaseConst Nothing) (PhaseConst $ rgb 100 0 100)
     mkMsgbox msg =
       substrate (LRTB 5 5 5 5) (rect (PhaseConst Nothing) (PhaseColor $ \colorPhase -> rgb colorPhase 130 200)) $
       substrate (LRTB 1 1 1 1) (rect (PhaseConst Nothing) (PhaseConst $ rgb 0 0 0)) $
@@ -310,12 +315,14 @@ exampleLayout =
         (PhaseWidth ((+1).(/1000)))
         (arrowhead (PhaseConst 8) (PhaseConst 8) (PhaseConst 2))) $
         horizCenter
-          (substrate
+          (onyellowbkg $
+           substrate
              (LRTB 1 2 3 4)
              (rect (PhaseConst (Just (LRTB 1 2 3 4))) (PhaseConst $ rgb 255 0 0))
              (collageWithMargin (Margin 0 30 0 0)
                (circle (PhaseConst $ rgb 0 255 0) (PhaseWidth $ \w -> Just (10 - (w/300))) 30)))
-          (collageWithMargin (Margin 20 0 0 0)
+          (dmbkg $
+            collageWithMargin (Margin 20 0 0 0)
             (text (ubuntuFont 12) (PhaseConst $ rgb 0 0 0) msg
             (PhaseCursor $ \cursor c -> if c then Just cursor else Nothing)))
     msgboxWithExtents msg =

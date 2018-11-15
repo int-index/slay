@@ -1,7 +1,8 @@
-{-# LANGUAGE TypeOperators, NamedFieldPuns #-}
+{-# LANGUAGE TypeOperators, NamedFieldPuns, TypeApplications #-}
 
 module Slay.Combinators
   ( substrate,
+    decorateMargin,
     horiz,
     horizTop,
     horizBottom,
@@ -35,6 +36,23 @@ substrate pad mkSub collage =
     extents = Extents
       { extentsW = left pad + extentsW e + right pad,
         extentsH = top pad + extentsH e + bottom pad }
+
+decorateMargin ::
+  Decoration (Extents -> Collage a) ->
+  Collage a ->
+  Collage a
+decorateMargin d collage =
+  collageDecorate decoration collage
+  where
+    e = collageExtents collage
+    m = collageMargin collage
+    extents = Extents
+      { extentsW = marginLeft m + extentsW e + marginRight m,
+        extentsH = marginTop m + extentsH e + marginBottom m }
+    pos = Offset
+      { offsetX = negate . toInteger $ marginLeft m,
+        offsetY = negate . toInteger $ marginTop m }
+    decoration = fmap @Decoration (\mkC -> At pos (mkC extents)) d
 
 horiz, vert ::
   (Natural -> Natural -> Integer) ->
