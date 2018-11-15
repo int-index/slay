@@ -265,6 +265,9 @@ marginMax = marginOp max
 data Collage a =
   Collage Margin Extents (CollageBuilder a)
 
+instance HasExtents (Collage a) where
+  extentsOf = collageExtents
+
 -- | Get the bounding box of a collage in constant time.
 collageExtents :: Collage a -> Extents
 collageExtents (Collage _ e _) = e
