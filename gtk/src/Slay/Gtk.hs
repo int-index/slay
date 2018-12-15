@@ -17,11 +17,13 @@ import Lens.Micro.Platform
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Function
+import Control.Applicative
 
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.Rendering.Cairo.Matrix as Matrix
 import qualified Graphics.Rendering.Cairo as Cairo
 
+import Inj
 import Inj.Base ()
 
 import Slay.Cairo
@@ -31,20 +33,42 @@ import Slay.Gtk.Phaser
 import Slay.Gtk.KeyCode
 import Slay.Gtk.Util
 
-data WithPhase x =
-  PhaseConst x |
-  PhaseCursor (Natural -> Bool -> x) |
-  PhaseColor (Word8 -> x) |
-  PhaseCurvature (Rational -> x) |
-  PhaseWidth (NonNegative Double -> x)
+data PhaseCtx =
+  PhaseCtx
+    { phCursor :: Natural,
+      phCursorPhase :: Bool,
+      phColorPhase :: Word8,
+      phCurvaturePhase :: Rational,
+      phWidthPhase :: NonNegative Double }
 
-withPhase :: Natural -> Bool -> Word8 -> Rational -> NonNegative Double -> WithPhase x -> x
-withPhase cursor cursorPhase colorPhase curvaturePhase widthPhase = \case
-  PhaseConst x -> x
-  PhaseCursor mkX -> mkX cursor cursorPhase
-  PhaseColor mkX -> mkX colorPhase
-  PhaseCurvature mkX -> mkX curvaturePhase
-  PhaseWidth mkX -> mkX widthPhase
+newtype WithPhase x = WithPhase (PhaseCtx -> x)
+  deriving (Functor, Applicative)
+
+instance Num a => Num (WithPhase a) where
+  (+) = liftA2 (+)
+  (*) = liftA2 (*)
+  (-) = liftA2 (-)
+  abs = fmap abs
+  signum = fmap signum
+  fromInteger = pure . fromInteger
+
+phaseConst :: x -> WithPhase x
+phaseConst x = WithPhase (\_ -> x)
+
+phaseCursor :: (Natural -> Bool -> x) -> WithPhase x
+phaseCursor mkX = WithPhase (\PhaseCtx{..} -> mkX phCursor phCursorPhase)
+
+phaseColor :: (Word8 -> x) -> WithPhase x
+phaseColor mkX = WithPhase (\PhaseCtx{..} -> mkX phColorPhase)
+
+phaseCurvature :: (Rational -> x) -> WithPhase x
+phaseCurvature mkX = WithPhase (\PhaseCtx{..} -> mkX phCurvaturePhase)
+
+phaseWidth :: (NonNegative Double -> x) -> WithPhase x
+phaseWidth mkX = WithPhase (\PhaseCtx{..} -> mkX phWidthPhase)
+
+instance Inj p x => Inj p (WithPhase x) where
+  inj = pure . inj
 
 type CollageElements = NonEmpty (Positioned (CairoElement WithPhase))
 
@@ -127,7 +151,16 @@ example = do
       ofs_l = snap $ getExcess (fst viewport') w / 2
       ofs_t = snap $ getExcess (snd viewport') h / 2
     Cairo.setMatrix (Matrix.translate (ofs_l - vl) (ofs_t - vt) matrix')
-    renderElements (withPhase (appStateCursor appState) cursorPhase colorPhase curvaturePhase widthPhase) elements
+    let
+      fromG :: WithPhase a -> a
+      fromG (WithPhase mkX) =
+        mkX PhaseCtx
+        { phCursor = appStateCursor appState,
+          phCursorPhase = cursorPhase,
+          phColorPhase = colorPhase,
+          phCurvaturePhase = curvaturePhase,
+          phWidthPhase = widthPhase }
+    renderElements fromG elements
   _ <- Gtk.on drawArea Gtk.keyPressEvent $ do
     keyVal <- Gtk.eventKeyVal
     label <- liftIO $ appStateLabel <$> readIORef appStateRef
@@ -300,31 +333,33 @@ exampleLayout =
       (colorPhase `div` 10)
     onyellowbkg =
       decorateMargin . DecorationAbove $
-        rect (PhaseConst (Just (LRTB 1 1 1 1))) (PhaseConst $ rgb 100 100 0)
+        rect (inj (LRTB @Integer 1 1 1 1)) (rgb 100 100 0)
     dmbkg = decorateMargin . DecorationBelow $
-      rect (PhaseConst Nothing) (PhaseConst $ rgb 100 0 100)
-    mkMsgbox msg =
-      substrate (LRTB 5 5 5 5) (rect (PhaseConst Nothing) (PhaseColor $ \colorPhase -> rgb colorPhase 130 200)) $
-      substrate (LRTB 1 1 1 1) (rect (PhaseConst Nothing) (PhaseConst $ rgb 0 0 0)) $
-      substrate (LRTB 3 3 3 3) (rect (PhaseConst Nothing) (PhaseConst $ rgb 255 255 255)) $
-      substrate (LRTB 3 3 3 3) (curve
+      rect (phaseConst Nothing) (rgb 100 0 100)
+    theCurve = curve
         (rgb 0 0 255)
-        (PhaseCurvature (Curvature.(subtract 1).(/628)))
-        (PhaseColor $ \colorPhase -> rgb colorPhase 130 200)
-        (PhaseConst (Direction True False))
-        (PhaseWidth ((+1).(/1000)))
-        (arrowhead (PhaseConst 8) (PhaseConst 8) (PhaseConst 2))) $
+        (phaseCurvature (Curvature.(subtract 1).(/628)))
+        (phaseColor $ \colorPhase -> rgb colorPhase 130 200)
+        (phaseConst (Direction True False))
+        (phaseWidth ((+1).(/1000)))
+        (arrowhead 8 8 2)
+    theRectCircle =
+      substrate
+        (LRTB 1 2 3 4)
+        (rect (inj (LRTB @Integer 1 2 3 4)) (rgb 255 0 0))
+        (collageWithMargin (Margin 0 30 0 0)
+          (circle (rgb 0 255 0) (phaseWidth $ \w -> Just (10 - (w/300))) 30))
+    mkMsgbox msg =
+      substrate (LRTB 5 5 5 5) (rect (phaseConst Nothing) (phaseColor $ \colorPhase -> rgb colorPhase 130 200)) $
+      substrate (LRTB 1 1 1 1) (rect (phaseConst Nothing) (rgb 0 0 0)) $
+      substrate (LRTB 3 3 3 3) (rect (phaseConst Nothing) (rgb 255 255 255)) $
+      substrate (LRTB 3 3 3 3) theCurve $
         horizCenter
-          (onyellowbkg $
-           substrate
-             (LRTB 1 2 3 4)
-             (rect (PhaseConst (Just (LRTB 1 2 3 4))) (PhaseConst $ rgb 255 0 0))
-             (collageWithMargin (Margin 0 30 0 0)
-               (circle (PhaseConst $ rgb 0 255 0) (PhaseWidth $ \w -> Just (10 - (w/300))) 30)))
+          (onyellowbkg theRectCircle)
           (dmbkg $
             collageWithMargin (Margin 20 0 0 0)
-            (text (ubuntuFont 12) (PhaseConst $ rgb 0 0 0) msg
-            (PhaseCursor $ \cursor c -> if c then Just cursor else Nothing)))
+            (text (ubuntuFont 12) (rgb 0 0 0) msg
+            (phaseCursor $ \cursor c -> if c then Just cursor else Nothing)))
     msgboxWithExtents msg =
       let msgbox = mkMsgbox msg
       in (msgbox, collageExtents msgbox)
