@@ -1,6 +1,8 @@
 module Slay.Cairo.Prim.Curve
   ( Curvature(..),
+    Corner(..),
     Direction(..),
+    directionFrom,
     Arrowhead(..),
     curve,
     arrowhead
@@ -24,6 +26,18 @@ instance p ~ Curvature => Inj p Curvature
 
 curvatureCoeff :: Curvature -> Double
 curvatureCoeff (Curvature r) = fromRational r
+
+data Corner = TopLeft | TopRight | BottomLeft | BottomRight
+
+directionFrom :: Inj Direction a => Corner -> a
+directionFrom TopLeft =
+  inj Direction { directionLeftToRight = True,  directionTopToBottom = True }
+directionFrom TopRight =
+  inj Direction { directionLeftToRight = False, directionTopToBottom = True }
+directionFrom BottomLeft =
+  inj Direction { directionLeftToRight = True,  directionTopToBottom = False }
+directionFrom BottomRight =
+  inj Direction { directionLeftToRight = False, directionTopToBottom = False }
 
 data Direction =
   Direction

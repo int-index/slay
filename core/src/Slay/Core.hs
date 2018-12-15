@@ -34,6 +34,7 @@ vector graphics.
     DeriveFoldable,
     DeriveTraversable,
     FlexibleInstances,
+    FlexibleContexts,
     MultiParamTypeClasses,
     GADTs,
     LambdaCase,
@@ -87,7 +88,8 @@ module Slay.Core
     collageDecorate,
 
     -- * LRTB
-    LRTB(..)
+    LRTB(..),
+    lrtb
 
   ) where
 
@@ -523,3 +525,6 @@ instance Applicative LRTB where
 
 instance (Inj p' a, p ~ LRTB p') => Inj p (LRTB a) where
   inj (LRTB l r t b) = LRTB (inj l) (inj r) (inj t) (inj b)
+
+lrtb :: forall p a. Inj (LRTB p) a => p -> p -> p -> p -> a
+lrtb l r t b = inj (LRTB l r t b)

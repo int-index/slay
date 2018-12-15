@@ -1,3 +1,4 @@
+{-# OPTIONS -Wno-type-defaults #-}
 {-# LANGUAGE OverloadedLabels #-}
 
 module Slay.Gtk
@@ -333,27 +334,27 @@ exampleLayout =
       (colorPhase `div` 10)
     onyellowbkg =
       decorateMargin . DecorationAbove $
-        rect (inj (LRTB @Integer 1 1 1 1)) (rgb 100 100 0)
+        rect (lrtb @Integer 1 1 1 1) (rgb 100 100 0)
     dmbkg = decorateMargin . DecorationBelow $
       rect (phaseConst Nothing) (rgb 100 0 100)
     theCurve = curve
         (rgb 0 0 255)
         (phaseCurvature (Curvature.(subtract 1).(/628)))
         (phaseColor $ \colorPhase -> rgb colorPhase 130 200)
-        (phaseConst (Direction True False))
+        (directionFrom BottomLeft)
         (phaseWidth ((+1).(/1000)))
         (arrowhead 8 8 2)
     theRectCircle =
       substrate
-        (LRTB 1 2 3 4)
-        (rect (inj (LRTB @Integer 1 2 3 4)) (rgb 255 0 0))
+        (lrtb 1 2 3 4)
+        (rect (lrtb 1 2 3 4) (rgb 255 0 0))
         (collageWithMargin (Margin 0 30 0 0)
           (circle (rgb 0 255 0) (phaseWidth $ \w -> Just (10 - (w/300))) 30))
     mkMsgbox msg =
-      substrate (LRTB 5 5 5 5) (rect (phaseConst Nothing) (phaseColor $ \colorPhase -> rgb colorPhase 130 200)) $
-      substrate (LRTB 1 1 1 1) (rect (phaseConst Nothing) (rgb 0 0 0)) $
-      substrate (LRTB 3 3 3 3) (rect (phaseConst Nothing) (rgb 255 255 255)) $
-      substrate (LRTB 3 3 3 3) theCurve $
+      substrate (lrtb 5 5 5 5) (rect (phaseConst Nothing) (phaseColor $ \colorPhase -> rgb colorPhase 130 200)) $
+      substrate (lrtb 1 1 1 1) (rect (phaseConst Nothing) (rgb 0 0 0)) $
+      substrate (lrtb 3 3 3 3) (rect (phaseConst Nothing) (rgb 255 255 255)) $
+      substrate (lrtb 3 3 3 3) theCurve $
         horizCenter
           (onyellowbkg theRectCircle)
           (dmbkg $
