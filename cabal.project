@@ -1,5 +1,4 @@
 packages:
-  non-negative/
   core/
   combinators/
   cairo/

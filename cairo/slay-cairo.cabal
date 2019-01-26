@@ -30,7 +30,7 @@ library
     pango,
     hashable,
     lrucaching,
-    non-negative,
+    num-non-negative,
     slay-core
 
   hs-source-dirs:

@@ -29,7 +29,7 @@ library
     text,
     microlens-platform,
     template-haskell,
-    non-negative,
+    num-non-negative,
     slay-combinators,
     slay-cairo
 
