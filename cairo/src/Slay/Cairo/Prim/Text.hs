@@ -52,9 +52,10 @@ text ::
 text font gcolor content gcursor =
   inj CairoElement
     { cairoElementExtents = extents,
+      cairoElementBaseline = baseline,
       cairoElementRender = render }
   where
-    (extents, pangoLayout) = primTextPango font content
+    (extents, baseline, pangoLayout) = primTextPango font content
 
     render :: Offset -> (forall x. g x -> x) -> Cairo.Render ()
     render (Offset x y) getG = do
@@ -95,11 +96,11 @@ primFontPango font = do
       FontWeightBold -> Pango.WeightBold)
   return pangoFont
 
-layoutCacheHndl :: LRU.LruHandle (Font, Text) (Extents, Pango.PangoLayout)
+layoutCacheHndl :: LRU.LruHandle (Font, Text) (Extents, Baseline, Pango.PangoLayout)
 layoutCacheHndl = unsafePerformIO (LRU.newLruHandle 1000)
 {-# NOINLINE layoutCacheHndl #-}
 
-primTextPango :: Font -> Text -> (Extents, Pango.PangoLayout)
+primTextPango :: Font -> Text -> (Extents, Baseline, Pango.PangoLayout)
 primTextPango font content = unsafePerformIO $ do
   LRU.cached layoutCacheHndl (font, content) $ do
     pangoFont <- primFontPango font
@@ -112,7 +113,10 @@ primTextPango font content = unsafePerformIO $ do
     (_, Pango.PangoRectangle _ _ w h) <-
       Pango.layoutGetExtents pangoLayout
     let e = Extents (ceiling w) (ceiling h)
-    return (e, pangoLayout)
+    pangoIter <- Pango.layoutGetIter pangoLayout
+    pangoBaseline <- Pango.layoutIterGetBaseline pangoIter
+    let l = Baseline (ceiling pangoBaseline)
+    return (e, l, pangoLayout)
 {-# NOINLINE primTextPango #-}
 
 surfaceCacheHndl :: LRU.LruHandle (Font, Color, Text) Cairo.Surface

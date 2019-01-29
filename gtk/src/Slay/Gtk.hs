@@ -361,7 +361,12 @@ exampleLayout =
             collageWithMargin (Margin 20 0 0 0)
             (text (ubuntuFont 12) (rgb 0 0 0) msg
             (phaseCursor $ \cursor c -> if c then Just cursor else Nothing)))
+    msgbox2 =
+      substrate
+        (lrtb 5 5 5 5)
+        (rect (phaseConst Nothing) (rgb 201 17 38))
+        (text (ubuntuFont 12) (rgb 0 0 0) "horiz\nbaseline" (phaseConst Nothing))
     msgboxWithExtents msg =
-      let msgbox = mkMsgbox msg
+      let msgbox = horizBaseline (mkMsgbox msg) msgbox2
       in (msgbox, collageExtents msgbox)
   in (msgboxWithExtents, background)

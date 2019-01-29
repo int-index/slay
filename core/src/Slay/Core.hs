@@ -64,12 +64,19 @@ module Slay.Core
     extentsAdd,
     extentsMax,
     extentsOffset,
+    extentsWithOffset,
     HasExtents(..),
 
     -- * Margin
     Margin(..),
     marginZero,
     marginMax,
+
+    -- * Baseline
+    Baseline(..),
+    baselineMin,
+    baselineWithOffset,
+    HasBaseline(..),
 
     -- * Collage
     Collage,
@@ -80,6 +87,7 @@ module Slay.Core
     collageWidth,
     collageHeight,
     collageMargin,
+    collageBaseline,
     collageWithMargin,
     collageElements,
 
@@ -218,6 +226,11 @@ extentsMax = extentsOp max
 extentsOffset :: Extents -> Offset
 extentsOffset (Extents w h) = Offset (toInteger w) (toInteger h)
 
+-- Precondition: offset is non-negative, otherwise the function
+-- throws @Underflow :: ArithException@.
+extentsWithOffset :: Offset -> Extents -> Extents
+extentsWithOffset offset = extentsAdd (unsafeOffsetExtents offset)
+
 class HasExtents a where
   extentsOf :: a -> Extents
 
@@ -245,6 +258,29 @@ marginZero = Margin 0 0 0 0
 marginMax :: Margin -> Margin -> Margin
 marginMax = marginOp max
 
+data Baseline = NoBaseline | Baseline Natural
+  deriving (Eq, Ord, Show)
+
+baselineOp ::
+  (Natural -> Natural -> Natural) ->
+  (Baseline -> Baseline -> Baseline)
+baselineOp _ NoBaseline l2 = l2
+baselineOp _ l1 NoBaseline = l1
+baselineOp (#) (Baseline l1) (Baseline l2) = Baseline (l1 # l2)
+
+baselineMin :: Baseline -> Baseline -> Baseline
+baselineMin = baselineOp min
+
+-- Precondition: offset is non-negative, otherwise the function
+-- throws @Underflow :: ArithException@.
+baselineWithOffset :: Offset -> Baseline -> Baseline
+baselineWithOffset _ NoBaseline = NoBaseline
+baselineWithOffset offset (Baseline l1) =
+  Baseline (l1 + fromInteger (offsetY offset))
+
+class HasBaseline a where
+  baselineOf :: a -> Baseline
+
 -- | A collage of elements. Can be created from a single element with
 -- 'collageSingleton' or from a combination of several sub-collages with
 -- relative offsets from a point with 'collageComposeN'. After a collage is
@@ -269,21 +305,28 @@ marginMax = marginOp max
 -- to the bottom-right corner.
 --
 data Collage a =
-  Collage Margin Extents (CollageBuilder a)
+  Collage Margin Extents Baseline (CollageBuilder a)
 
 instance HasExtents (Collage a) where
   extentsOf = collageExtents
 
+instance HasBaseline (Collage a) where
+  baselineOf = collageBaseline
+
 -- | Get the bounding box of a collage in constant time.
 collageExtents :: Collage a -> Extents
-collageExtents (Collage _ e _) = e
+collageExtents (Collage _ e _ _) = e
 
 -- | Get the margin of a collage in constant time.
 collageMargin :: Collage a -> Margin
-collageMargin (Collage m _ _) = m
+collageMargin (Collage m _ _ _) = m
+
+-- | Get the baseline in constant time.
+collageBaseline :: Collage a -> Baseline
+collageBaseline (Collage _ _ l _) = l
 
 collageBuilder :: Collage a -> CollageBuilder a
-collageBuilder (Collage _ _ b) = b
+collageBuilder (Collage _ _ _ b) = b
 
 -- | Get the width of a collage in constant time.
 collageWidth :: Collage a -> Natural
@@ -294,10 +337,10 @@ collageHeight :: Collage a -> Natural
 collageHeight = extentsH . collageExtents
 
 collageWithMargin :: Margin -> Collage a -> Collage a
-collageWithMargin m' (Collage m e b) =
+collageWithMargin m' (Collage m e l b) =
   -- We use 'marginMax' because we do not want to accidentally erase the margin
   -- computed from subcollages in the 'CollageCompose' case.
-  Collage (marginMax m' m) e b
+  Collage (marginMax m' m) e l b
 
 -- | Get a non-empty list of primitives with absolute positions and computed
 -- extents, ordered by z-index (ascending).
@@ -309,7 +352,7 @@ collageElements ::
   Offset ->
   Collage a ->
   NonEmpty (Positioned a)
-collageElements offset (Collage _ _ b) =
+collageElements offset (Collage _ _ _ b) =
   fromDNonEmpty (buildCollage b offset)
 
 -- Non-empty difference list
@@ -343,12 +386,11 @@ collageBuilderCompose xs =
     }
 
 -- | Construct a collage from a single element.
-collageSingleton :: HasExtents a => a -> Collage a
+collageSingleton :: (HasExtents a, HasBaseline a) => a -> Collage a
 collageSingleton a =
-  let extents = extentsOf a
-  in Collage marginZero extents (collageBuilderSingleton a)
+  Collage marginZero (extentsOf a) (baselineOf a) (collageBuilderSingleton a)
 
-instance (HasExtents a, IsString a) => IsString (Collage a) where
+instance (HasExtents a, HasBaseline a, IsString a) => IsString (Collage a) where
   fromString = collageSingleton . fromString
 
 -- | Combine a pair of collages by placing one atop another
@@ -439,11 +481,11 @@ fromMarginPoints extents marginPoints =
     intNatCeil :: Integer -> Natural
     intNatCeil = fromInteger . max 0
 
-data CollageComposeAccum = CollageComposeAccum MarginPoints Extents Offset
+data CollageComposeAccum = CollageComposeAccum MarginPoints Extents Baseline Offset
 
 instance Semigroup CollageComposeAccum where
-  CollageComposeAccum mp1 e1 o1 <> CollageComposeAccum mp2 e2 o2 =
-    CollageComposeAccum (mp1 <> mp2) (extentsMax e1 e2) (offsetMin o1 o2)
+  CollageComposeAccum mp1 e1 l1 o1 <> CollageComposeAccum mp2 e2 l2 o2 =
+    CollageComposeAccum (mp1 <> mp2) (extentsMax e1 e2) (baselineMin l1 l2) (offsetMin o1 o2)
 
 -- | A generalization of 'collageCompose' to take a non-empty list of
 -- sub-collages instead of a pair.
@@ -461,11 +503,11 @@ collageComposeN elements =
   At minOffset resultCollage
   where
     resultCollage =
-      Collage resultMargin resultExtents (collageBuilderCompose resultElements)
+      Collage resultMargin resultExtents resultBaseline (collageBuilderCompose resultElements)
 
     resultMargin = fromMarginPoints resultExtents resultMarginPoints
 
-    (CollageComposeAccum resultMarginPoints resultExtents minOffset, resultElements) =
+    (CollageComposeAccum resultMarginPoints resultExtents resultBaseline minOffset, resultElements) =
       traverse1_NonEmpty_Writer processElement elements
 
     processElement ::
@@ -475,12 +517,14 @@ collageComposeN elements =
       let
         extents = collageExtents collage
         margin = collageMargin collage
+        baseline = collageBaseline collage
         -- normalized offset, guaranteed to be non-negative
         offset' = offsetSub offset minOffset
-        extents' = extentsAdd (unsafeOffsetExtents offset') extents
+        extents' = extentsWithOffset offset' extents
+        baseline' = baselineWithOffset offset' baseline
         marginPoints = toMarginPoints offset' extents margin
         element' = At offset' (collageBuilder collage)
-        acc = CollageComposeAccum marginPoints extents' offset
+        acc = CollageComposeAccum marginPoints extents' baseline' offset
       in
         (acc, element')
 
@@ -488,7 +532,7 @@ instance Semigroup (Positioned (Collage a)) where
   a <> b = sconcat (a :| b : [])
   sconcat = collageComposeN
 
-instance (HasExtents a, Inj p a) => Inj p (Collage a) where
+instance (HasExtents a, HasBaseline a, Inj p a) => Inj p (Collage a) where
   inj = collageSingleton . inj
 
 data Decoration a =
@@ -499,7 +543,7 @@ collageDecorate ::
   Decoration (Positioned (Collage a)) ->
   Collage a ->
   Collage a
-collageDecorate d (Collage m e b) =
+collageDecorate d (Collage m e l b) =
   let
     toCB = fmap @Positioned collageBuilder
     bAt0 = At offsetZero b
@@ -508,7 +552,7 @@ collageDecorate d (Collage m e b) =
       DecorationAbove d' -> bAt0 :| toCB d' : []
     b' = collageBuilderCompose bs
   in
-    Collage m e b'
+    Collage m e l b'
 
 -- | A value for each side: left, right, top, bottom.
 data LRTB a = LRTB
@@ -524,7 +568,7 @@ instance Applicative LRTB where
     LRTB (lf la) (rf ra) (tf ta) (bf ba)
 
 instance (Inj p' a, p ~ LRTB p') => Inj p (LRTB a) where
-  inj (LRTB l r t b) = LRTB (inj l) (inj r) (inj t) (inj b)
+  inj = fmap inj
 
 lrtb :: forall p a. Inj (LRTB p) a => p -> p -> p -> p -> a
 lrtb l r t b = inj (LRTB l r t b)

@@ -22,6 +22,7 @@ circle ::
 circle gcolor gmthickness diameter =
   inj CairoElement
     { cairoElementExtents = extents,
+      cairoElementBaseline = NoBaseline,
       cairoElementRender = render }
   where
     extents = Extents diameter diameter

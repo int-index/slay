@@ -7,6 +7,7 @@ module Slay.Combinators
     horizTop,
     horizBottom,
     horizCenter,
+    horizBaseline,
     vert,
     vertLeft,
     vertRight,
@@ -85,6 +86,15 @@ horizTop, horizBottom, horizCenter ::
 horizTop = horiz (\_ _ -> 0)
 horizBottom = horiz (\h1 h2 -> toInteger h1 - toInteger h2)
 horizCenter = horiz (\h1 h2 -> (toInteger h1 - toInteger h2) `div` 2)
+
+horizBaseline ::
+  Collage s -> Collage s -> Collage s
+horizBaseline c1 c2 =
+  case (collageBaseline c1, collageBaseline c2) of
+    (Baseline a1, Baseline a2) ->
+      horiz (\_ _ -> toInteger a1 - toInteger a2) c1 c2
+    _ ->
+      horizTop c1 c2
 
 vertLeft, vertRight, vertCenter ::
   Collage s -> Collage s -> Collage s

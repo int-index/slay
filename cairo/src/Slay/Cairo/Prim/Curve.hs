@@ -79,6 +79,7 @@ curve ::
 curve mdebug gcurvature gcolor gdirection gwidth marrowhead extents =
   inj CairoElement
     { cairoElementExtents = extents,
+      cairoElementBaseline = NoBaseline,
       cairoElementRender = render }
   where
     render :: Offset -> (forall x. g x -> x) -> Cairo.Render ()

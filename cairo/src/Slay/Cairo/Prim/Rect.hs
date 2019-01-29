@@ -21,6 +21,7 @@ rect ::
 rect gmthickness gmcolor extents =
   inj CairoElement
     { cairoElementExtents = extents,
+      cairoElementBaseline = NoBaseline,
       cairoElementRender = render }
   where
     render :: Offset -> (forall x. g x -> x) -> Cairo.Render ()
