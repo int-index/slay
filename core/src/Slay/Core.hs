@@ -5,22 +5,6 @@ expressed using primitives (rectangles, circles, lines of text, etc) and
 combinators (horizontal/vertical composition, layering, centering, etc) and
 compute absolute coordinates for primitives on a 2-dimensional plane.
 
-The basic use of the library is to build a 'Collage' with the '-/'
-constraint in the context, then extract its elements with 'collageElements'.
-
-To build a collage, there are three primary combinators:
-
-  * 'collageSingleton' to wrap a single element
-  * 'collageCompose' to layer one collage atop another, with a relative offset
-  * 'collageExtents' to get the size of a collage
-
-Other combinators, such as horizontal and vertical composition, can be
-expressed in terms of these three.
-
-In case there is a need for a functorial context, instead of using
-'collageElements', turn the collage into a 'Layout' with 'mkLayout', and then
-collect the elements with their absolute coordinates using 'layoutElements'.
-
 We represent coordinates and distances in device units (pixels or characters)
 using types without a fractional component ('Natural' and 'Integer'). The reason
 for this is to guarantee that the resulting collage can be rendered without
@@ -110,7 +94,7 @@ import Data.Semigroup (sconcat)
 
 import Inj
 
--- | The position of a primitive (relative or absolute).
+-- | The position of an item (relative or absolute).
 data Offset =
   Offset
     { offsetX :: Integer,
@@ -189,7 +173,7 @@ unsafeOffsetExtents (Offset x y) = Extents (fromInteger x) (fromInteger y)
 data Positioned a = At { positionedOffset :: Offset, positionedItem :: a }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
--- | The size of a primitive.
+-- | The size of an item.
 data Extents =
   Extents
     { extentsW :: Natural,
@@ -226,14 +210,18 @@ extentsMax = extentsOp max
 extentsOffset :: Extents -> Offset
 extentsOffset (Extents w h) = Offset (toInteger w) (toInteger h)
 
+-- | Compute the extents for a subcollage in a composition.
+--
 -- Precondition: offset is non-negative, otherwise the function
 -- throws @Underflow :: ArithException@.
 extentsWithOffset :: Offset -> Extents -> Extents
 extentsWithOffset offset = extentsAdd (unsafeOffsetExtents offset)
 
+-- | A class of items that have extents.
 class HasExtents a where
   extentsOf :: a -> Extents
 
+-- | A minimum recommended distance from an item to any other item.
 data Margin =
   Margin
     { marginLeft :: Natural,
@@ -242,6 +230,8 @@ data Margin =
       marginBottom :: Natural
     } deriving (Eq, Ord, Show)
 
+-- | Lift a binary numeric operation to margins,
+-- applying it to all four directions.
 marginOp ::
   (Natural -> Natural -> Natural) ->
   (Margin -> Margin -> Margin)
@@ -252,15 +242,25 @@ marginOp (#) m1 m2 =
       marginTop = marginTop m1 # marginTop m2,
       marginBottom = marginBottom m1 # marginBottom m2 }
 
+-- | Zero margin.
 marginZero :: Margin
 marginZero = Margin 0 0 0 0
 
+-- | Margin pointwise maximum.
+--
+-- >>> marginMax (Margin 1 10 2 20) (Margin 3 4 5 6)
+-- Margin {marginLeft = 3, marginRight = 10, marginTop = 5, marginBottom = 20}
+--
 marginMax :: Margin -> Margin -> Margin
 marginMax = marginOp max
 
+-- | The imaginary line upon which the topmost line of text rests, expressed as
+-- a distance from the top edge. May not be present if the item does not
+-- contain text.
 data Baseline = NoBaseline | Baseline Natural
   deriving (Eq, Ord, Show)
 
+-- | Lift a binary numeric operation to baselines.
 baselineOp ::
   (Natural -> Natural -> Natural) ->
   (Baseline -> Baseline -> Baseline)
@@ -268,9 +268,19 @@ baselineOp _ NoBaseline l2 = l2
 baselineOp _ l1 NoBaseline = l1
 baselineOp (#) (Baseline l1) (Baseline l2) = Baseline (l1 # l2)
 
+-- | Baseline minimum.
+--
+-- >>> baselineMin (Baseline 10) (Baseline 20)
+-- Baseline 10
+--
+-- >>> baselineMin (Baseline 20) NoBaseline
+-- Baseline 20
+--
 baselineMin :: Baseline -> Baseline -> Baseline
 baselineMin = baselineOp min
 
+-- | Compute the baseline for a subcollage in a composition.
+--
 -- Precondition: offset is non-negative, otherwise the function
 -- throws @Underflow :: ArithException@.
 baselineWithOffset :: Offset -> Baseline -> Baseline
@@ -278,11 +288,12 @@ baselineWithOffset _ NoBaseline = NoBaseline
 baselineWithOffset offset (Baseline l1) =
   Baseline (l1 + fromInteger (offsetY offset))
 
+-- | A class of items that have a baseline.
 class HasBaseline a where
   baselineOf :: a -> Baseline
 
 -- | A collage of elements. Can be created from a single element with
--- 'collageSingleton' or from a combination of several sub-collages with
+-- 'collageSingleton' or from a combination of several subcollages with
 -- relative offsets from a point with 'collageComposeN'. After a collage is
 -- built, it can be converted to a non-empty list of elements coupled with
 -- their absolute coordinates using the 'collageElements' function.
@@ -336,10 +347,11 @@ collageWidth = extentsW . collageExtents
 collageHeight :: Collage a -> Natural
 collageHeight = extentsH . collageExtents
 
+-- | Set the margins of a collage to the pointwise maximum of their current
+-- value and the specified new value. Taking the maximum ensures we do not
+-- erase the margins computed from subcollages.
 collageWithMargin :: Margin -> Collage a -> Collage a
 collageWithMargin m' (Collage m e l b) =
-  -- We use 'marginMax' because we do not want to accidentally erase the margin
-  -- computed from subcollages in the 'CollageCompose' case.
   Collage (marginMax m' m) e l b
 
 -- | Get a non-empty list of primitives with absolute positions and computed
@@ -488,7 +500,7 @@ instance Semigroup CollageComposeAccum where
     CollageComposeAccum (mp1 <> mp2) (extentsMax e1 e2) (baselineMin l1 l2) (offsetMin o1 o2)
 
 -- | A generalization of 'collageCompose' to take a non-empty list of
--- sub-collages instead of a pair.
+-- subcollages instead of a pair.
 --
 -- Offset common between all elements is factored out into the position of the
 -- resulting collage.
@@ -535,10 +547,14 @@ instance Semigroup (Positioned (Collage a)) where
 instance (HasExtents a, HasBaseline a, Inj p a) => Inj p (Collage a) where
   inj = collageSingleton . inj
 
+-- | A decoration is an item in a collage does affect its layout. That is,
+-- adding a decoration it has no effect on the extents, margins, or the
+-- baseline of a collage.
 data Decoration a =
   DecorationBelow a | DecorationAbove a
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
+-- | Add a decoration to a collage.
 collageDecorate ::
   Decoration (Positioned (Collage a)) ->
   Collage a ->
@@ -570,5 +586,6 @@ instance Applicative LRTB where
 instance (Inj p' a, p ~ LRTB p') => Inj p (LRTB a) where
   inj = fmap inj
 
+-- | Construct and inject an 'LRTB' value.
 lrtb :: forall p a. Inj (LRTB p) a => p -> p -> p -> p -> a
 lrtb l r t b = inj (LRTB l r t b)
