@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeOperators, NamedFieldPuns, TypeApplications #-}
+{-# LANGUAGE NamedFieldPuns, TypeApplications #-}
 
 module Slay.Combinators
   ( substrate,
