@@ -18,6 +18,7 @@ module Slay.Combinators
 
 import Numeric.Natural
 import Control.Applicative
+import Data.List.NonEmpty
 import Slay.Core
 
 substrate ::
@@ -56,51 +57,47 @@ decorateMargin d collage =
     decoration = fmap @Decoration (\mkC -> At pos (mkC extents)) d
 
 horiz, vert ::
-  (Natural -> Natural -> Integer) ->
+  (Collage s -> Integer) ->
   Collage s ->
   Collage s ->
   Collage s
-horiz align c1 c2 = collageCompose offset c1 c2
+horiz align c1 c2 =
+  positionedItem $
+    collageComposeN (At offset1 c1 :| At offset2 c2 : [])
   where
-    e1 = collageExtents c1
-    e2 = collageExtents c2
     m1 = collageMargin c1
     m2 = collageMargin c2
     marginX = max (marginRight m1) (marginLeft m2)
-    offsetX = toInteger (extentsW e1) + toInteger marginX
-    offsetY = align (extentsH e1) (extentsH e2)
-    offset = Offset{offsetX, offsetY}
-vert align c1 c2 = collageCompose offset c1 c2
+    offsetX = toInteger (widthOf c1 + marginX)
+    offset1 = Offset{offsetY=align c1, offsetX=0}
+    offset2 = Offset{offsetY=align c2, offsetX}
+vert align c1 c2 =
+  positionedItem $
+    collageComposeN (At offset1 c1 :| At offset2 c2 : [])
   where
-    e1 = collageExtents c1
-    e2 = collageExtents c2
     m1 = collageMargin c1
     m2 = collageMargin c2
     marginY = max (marginBottom m1) (marginTop m2)
-    offsetX = align (extentsW e1) (extentsW e2)
-    offsetY = toInteger (extentsH e1) + toInteger marginY
-    offset = Offset{offsetX, offsetY}
+    offsetY = toInteger (heightOf c1 + marginY)
+    offset1 = Offset{offsetX=align c1, offsetY=0}
+    offset2 = Offset{offsetX=align c2, offsetY}
 
-horizTop, horizBottom, horizCenter ::
+horizTop, horizBottom, horizCenter, horizBaseline ::
   Collage s -> Collage s -> Collage s
-horizTop = horiz (\_ _ -> 0)
-horizBottom = horiz (\h1 h2 -> toInteger h1 - toInteger h2)
-horizCenter = horiz (\h1 h2 -> (toInteger h1 - toInteger h2) `div` 2)
+horizTop = horiz (const 0)
+horizBottom = horiz (negate . toInteger . heightOf)
+horizCenter = horiz (negate . toInteger . (`quot` 2) . heightOf)
+horizBaseline = horiz (negate . defaultBaseline 0 . collageBaseline)
 
-horizBaseline ::
-  Collage s -> Collage s -> Collage s
-horizBaseline c1 c2 =
-  case (collageBaseline c1, collageBaseline c2) of
-    (Baseline a1, Baseline a2) ->
-      horiz (\_ _ -> toInteger a1 - toInteger a2) c1 c2
-    _ ->
-      horizTop c1 c2
+defaultBaseline :: Integer -> Baseline -> Integer
+defaultBaseline b NoBaseline = b
+defaultBaseline _ (Baseline a) = toInteger a
 
 vertLeft, vertRight, vertCenter ::
   Collage s -> Collage s -> Collage s
-vertLeft = vert (\_ _ -> 0)
-vertRight = vert (\w1 w2 -> toInteger w1 - toInteger w2)
-vertCenter = vert (\w1 w2 -> (toInteger w1 - toInteger w2) `div` 2)
+vertLeft = vert (const 0)
+vertRight = vert (negate . toInteger . widthOf)
+vertCenter = vert (negate . toInteger . (`quot` 2) . widthOf)
 
 insideBox :: (Offset, Extents) -> Offset -> Bool
 insideBox (Offset ax ay, Extents w h) (Offset x y) =
