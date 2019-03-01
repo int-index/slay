@@ -50,6 +50,8 @@ module Slay.Core
     extentsOffset,
     extentsWithOffset,
     HasExtents(..),
+    heightOf,
+    widthOf,
 
     -- * Margin
     Margin(..),
@@ -220,6 +222,10 @@ extentsWithOffset offset = extentsAdd (unsafeOffsetExtents offset)
 -- | A class of items that have extents.
 class HasExtents a where
   extentsOf :: a -> Extents
+
+heightOf, widthOf :: HasExtents a => a -> Natural
+heightOf = extentsH . extentsOf
+widthOf = extentsW . extentsOf
 
 -- | A minimum recommended distance from an item to any other item.
 data Margin =
