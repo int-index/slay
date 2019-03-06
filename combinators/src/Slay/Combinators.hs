@@ -87,11 +87,13 @@ horizTop, horizBottom, horizCenter, horizBaseline ::
 horizTop = horiz (const 0)
 horizBottom = horiz (negate . toInteger . heightOf)
 horizCenter = horiz (negate . toInteger . (`quot` 2) . heightOf)
-horizBaseline = horiz (negate . defaultBaseline 0 . collageBaseline)
+horizBaseline = horiz (negate . toInteger . collageBaselineDefault)
 
-defaultBaseline :: Integer -> Baseline -> Integer
-defaultBaseline b NoBaseline = b
-defaultBaseline _ (Baseline a) = toInteger a
+collageBaselineDefault :: Collage s -> Natural
+collageBaselineDefault c =
+  case collageBaseline c of
+    NoBaseline -> heightOf c
+    Baseline a -> a
 
 vertLeft, vertRight, vertCenter ::
   Collage s -> Collage s -> Collage s
