@@ -14,8 +14,3 @@ before_install:
 script:
   - ./nix-cabal new-build all
   - ./nix-cabal new-exec which slay-gtk-example
-
-cache:
-  directories:
-    - ~/.cabal
-    - ~/.ghc
