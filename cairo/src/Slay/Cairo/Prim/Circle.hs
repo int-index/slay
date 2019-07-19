@@ -27,8 +27,8 @@ circle gcolor gmthickness diameter =
   where
     extents = Extents diameter diameter
 
-    render :: Offset -> (forall x. g x -> x) -> Cairo.Render ()
-    render offset getG = do
+    render :: Offset -> CairoRender g
+    render offset = CairoRender $ \getG -> do
       let (Offset (fromIntegral -> x) (fromIntegral -> y)) = offset
       setSourceColor $ getG gcolor
       let r = fromIntegral diameter / 2

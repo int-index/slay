@@ -71,16 +71,14 @@ phaseWidth mkX = WithPhase (\PhaseCtx{..} -> mkX phWidthPhase)
 instance Inj p x => Inj p (WithPhase x) where
   inj = pure . inj
 
-type CollageElements = NonEmpty (Positioned (CairoElement WithPhase))
+type CollageRender = ((CairoRender WithPhase, Extents), Word8 -> Color)
 
-type CollageElements' = ((CollageElements, Extents), Word8 -> Color)
-
--- invariant: collageElements = mkElements label
+-- invariant: appStateCollageRender = mkCollageRender label
 data AppState = AppState
   { appStateLabel :: Text,
     appStateCursor :: Natural,
     appStatePreMatrix :: CachedPreMatrix,
-    appStateCollageElements :: CollageElements'
+    appStateCollageRender :: CollageRender
   }
 
 appStateCursorL :: Lens' AppState Natural
@@ -103,20 +101,20 @@ example = do
     , Gtk.ScrollMask
     ]
   let
-    mkElements :: Text -> CollageElements'
-    mkElements label =
+    mkCollageRender :: Text -> CollageRender
+    mkCollageRender label =
       let
         (mkCollage, background) = exampleLayout
         (collage, vextents) = mkCollage label
-        cElements = collageElements offsetZero collage
+        cRender = foldMapCollage cairoPositionedElementRender offsetZero collage
       in
-        ((cElements, vextents), background)
+        ((cRender, vextents), background)
   appStateRef <- newIORef $ fix $ \this ->
     AppState
       { appStateLabel = "Source",
         appStateCursor = 0,
         appStatePreMatrix = cachedPreMatrix $ PreMatrix 1 0 (0, 0),
-        appStateCollageElements = mkElements (appStateLabel this) }
+        appStateCollageRender = mkCollageRender (appStateLabel this) }
   cursorPhaser <- createPhaser
   colorPhaser <- createPhaser
   widthPhaser <- createPhaser
@@ -138,7 +136,7 @@ example = do
     appState <- liftIO $ readIORef appStateRef
     let
       CachedPreMatrix _ matrix matrix' = appStatePreMatrix appState
-      ((elements, vextents), background) = appStateCollageElements appState
+      ((collageRender, vextents), background) = appStateCollageRender appState
     viewport' <- setBackground (background colorPhase)
     let
       (vl, vr, vt, vb) = boundingBox $
@@ -161,7 +159,7 @@ example = do
           phColorPhase = colorPhase,
           phCurvaturePhase = curvaturePhase,
           phWidthPhase = widthPhase }
-    renderElements fromG elements
+    cairoRender collageRender fromG
   _ <- Gtk.on drawArea Gtk.keyPressEvent $ do
     keyVal <- Gtk.eventKeyVal
     label <- liftIO $ appStateLabel <$> readIORef appStateRef
@@ -188,7 +186,7 @@ example = do
             (pre, post) = Text.splitAt (fromIntegral cursor) (appStateLabel appState)
             appState' = fix $ \this -> appState
               { appStateLabel = pre <> Text.drop 1 post,
-                appStateCollageElements = mkElements (appStateLabel this)
+                appStateCollageRender = mkCollageRender (appStateLabel this)
               }
           in
             (appState', ())
@@ -203,7 +201,7 @@ example = do
             appState' = fix $ \this -> appState
               { appStateLabel = lbl',
                 appStateCursor = if Text.null pre then cursor else cursor - 1,
-                appStateCollageElements = mkElements (appStateLabel this)
+                appStateCollageRender = mkCollageRender (appStateLabel this)
               }
           in
             (appState', ())
@@ -218,7 +216,7 @@ example = do
             appState' = fix $ \this -> appState
               { appStateLabel = lbl',
                 appStateCursor = cursor + 1,
-                appStateCollageElements = mkElements (appStateLabel this)
+                appStateCollageRender = mkCollageRender (appStateLabel this)
               }
           in
             (appState', ())
@@ -241,7 +239,7 @@ example = do
               else pmOffsetL .~ (0, 0)
             appState' = fix $ \this -> appState
               { appStatePreMatrix = cachedPreMatrix preMatrix',
-                appStateCollageElements = mkElements (appStateLabel this)
+                appStateCollageRender = mkCollageRender (appStateLabel this)
               }
           in
             (appState', ())
@@ -260,7 +258,7 @@ example = do
             appState' = if Gtk.Control `elem` mods
               then fix $ \this -> appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmScaleL %~ (+0.15),
-                  appStateCollageElements = mkElements (appStateLabel this)
+                  appStateCollageRender = mkCollageRender (appStateLabel this)
                 }
               else appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmOffsetL . _2 %~ (+5)
@@ -275,7 +273,7 @@ example = do
             appState' = if Gtk.Control `elem` mods
               then fix $ \this -> appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmScaleL %~ subtract 0.15,
-                  appStateCollageElements = mkElements (appStateLabel this)
+                  appStateCollageRender = mkCollageRender (appStateLabel this)
                 }
               else appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmOffsetL . _2 %~ subtract 5
@@ -290,7 +288,7 @@ example = do
             appState' = if Gtk.Control `elem` mods
               then fix $ \this -> appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmRotateL %~ pred,
-                  appStateCollageElements = mkElements (appStateLabel this)
+                  appStateCollageRender = mkCollageRender (appStateLabel this)
                 }
               else appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmOffsetL . _1 %~ (+5)
@@ -305,7 +303,7 @@ example = do
             appState' = if Gtk.Control `elem` mods
               then fix $ \this -> appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmRotateL %~ succ,
-                  appStateCollageElements = mkElements (appStateLabel this)
+                  appStateCollageRender = mkCollageRender (appStateLabel this)
                 }
               else appState
                 { appStatePreMatrix = cachedPreMatrix $ preMatrix & pmOffsetL . _1 %~ subtract 5

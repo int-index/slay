@@ -82,8 +82,8 @@ curve mdebug gcurvature gcolor gdirection gwidth marrowhead extents =
       cairoElementBaseline = NoBaseline,
       cairoElementRender = render }
   where
-    render :: Offset -> (forall x. g x -> x) -> Cairo.Render ()
-    render offset getG = do
+    render :: Offset -> CairoRender g
+    render offset = CairoRender $ \getG -> do
       let
         o = (fromIntegral $ offsetX offset, fromIntegral $ offsetY offset)
         width = getG gwidth

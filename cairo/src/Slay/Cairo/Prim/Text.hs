@@ -57,8 +57,8 @@ text font gcolor content gcursor =
   where
     (extents, baseline, pangoLayout) = primTextPango font content
 
-    render :: Offset -> (forall x. g x -> x) -> Cairo.Render ()
-    render (Offset x y) getG = do
+    render :: Offset -> CairoRender g
+    render (Offset x y) = CairoRender $ \getG -> do
       let Extents w h = extents
       let color = getG gcolor
       -- TODO: take the transformation matrix into account, otherwise the text

@@ -24,8 +24,8 @@ rect gmthickness gmcolor extents =
       cairoElementBaseline = NoBaseline,
       cairoElementRender = render }
   where
-    render :: Offset -> (forall x. g x -> x) -> Cairo.Render ()
-    render (Offset x y) getG = do
+    render :: Offset -> CairoRender g
+    render (Offset x y) = CairoRender $ \getG -> do
       let Extents w h = extents
       for_ (getG gmcolor) $ \color -> do
         setSourceColor color

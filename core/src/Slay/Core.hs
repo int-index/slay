@@ -75,7 +75,7 @@ module Slay.Core
     collageMargin,
     collageBaseline,
     collageWithMargin,
-    collageElements,
+    foldMapCollage,
 
     -- * Decoration
     Decoration(..),
@@ -90,8 +90,6 @@ module Slay.Core
 import Numeric.Natural (Natural)
 import Data.String (IsString(..))
 import Data.List.NonEmpty (NonEmpty(..))
-import Data.List (foldl')
-import qualified Data.List.NonEmpty as NonEmpty
 import Data.Semigroup (sconcat)
 
 import Inj
@@ -301,8 +299,7 @@ class HasBaseline a where
 -- | A collage of elements. Can be created from a single element with
 -- 'collageSingleton' or from a combination of several subcollages with
 -- relative offsets from a point with 'collageComposeN'. After a collage is
--- built, it can be converted to a non-empty list of elements coupled with
--- their absolute coordinates using the 'collageElements' function.
+-- built, it can be folded with 'foldMapCollage'.
 --
 -- Here's a visualisation of a collage with two rectangular elements:
 --
@@ -360,48 +357,37 @@ collageWithMargin :: Margin -> Collage a -> Collage a
 collageWithMargin m' (Collage m e l b) =
   Collage (marginMax m' m) e l b
 
--- | Get a non-empty list of primitives with absolute positions and computed
--- extents, ordered by z-index (ascending).
+-- | Fold over the collage elements with absolute positions,
+-- ordered by z-index (ascending).
 --
 -- O(n) - linear in the amount of elements.
 --
 -- The input offset is the position for the top-left corner of the collage.
-collageElements ::
+foldMapCollage ::
+  Semigroup s =>
+  (Positioned a -> s) ->
   Offset ->
   Collage a ->
-  NonEmpty (Positioned a)
-collageElements offset (Collage _ _ _ b) =
-  fromDNonEmpty (buildCollage b offset)
-
--- Non-empty difference list
-newtype DNonEmpty a = DNonEmpty ([a] -> NonEmpty a)
-
-instance Semigroup (DNonEmpty a) where
-  DNonEmpty f <> DNonEmpty g = DNonEmpty (f . NonEmpty.toList . g)
-
-fromDNonEmpty :: DNonEmpty a -> NonEmpty a
-fromDNonEmpty (DNonEmpty f) = f []
+  s
+foldMapCollage yield offset (Collage _ _ _ b) =
+  buildCollage b yield offset
 
 newtype CollageBuilder a =
-  CollageBuilder { buildCollage :: Offset -> DNonEmpty (Positioned a) }
+  CollageBuilder { buildCollage :: forall r. Semigroup r => (Positioned a -> r) -> Offset -> r }
 
 collageBuilderSingleton :: a -> CollageBuilder a
 collageBuilderSingleton a =
-  CollageBuilder { buildCollage = \offset -> DNonEmpty (At offset a :|) }
+  CollageBuilder { buildCollage = \yield offset -> yield (At offset a) }
 
--- Elements are ordered by z-index (ascending)
-collageBuilderCompose ::
-  NonEmpty (Positioned (CollageBuilder a)) ->
-  CollageBuilder a
-collageBuilderCompose xs =
-  CollageBuilder
-    { buildCollage = \offset ->
-        let
-          toElements :: Positioned (CollageBuilder a) -> DNonEmpty (Positioned a)
-          toElements (At o b) = buildCollage b (offsetAdd offset o)
-        in
-          foldMap_NonEmpty toElements xs
-    }
+collageBuilderWithOffset :: Offset -> CollageBuilder a -> CollageBuilder a
+collageBuilderWithOffset o b =
+  CollageBuilder $ \yield offset ->
+    buildCollage b yield (offsetAdd offset o)
+
+instance Semigroup (CollageBuilder a) where
+  b1 <> b2 =
+    CollageBuilder $ \yield offset ->
+      buildCollage b1 yield offset <> buildCollage b2 yield offset
 
 -- | Construct a collage from a single element.
 collageSingleton :: (HasExtents a, HasBaseline a) => a -> Collage a
@@ -436,28 +422,6 @@ collageCompose ::
   Collage a
 collageCompose offset c1 c2 =
   positionedItem (At offsetZero c1 <> At offset c2)
-
--- reimplementation of 'foldMap1' with t~NonEmpty, to avoid
--- a dependency on 'semigroupoids'
-foldMap_NonEmpty :: Semigroup s => (a -> s) -> NonEmpty a -> s
-foldMap_NonEmpty f (s :| ss) = foldl' (\acc x -> acc <> f x) (f s) ss
-
--- reimplementation of 'traverse1' with t~NonEmpty and f~(acc,) to avoid
--- a dependency on 'semigroupoids'
-traverse1_NonEmpty_Writer ::
-  forall a b acc.
-  Semigroup acc =>
-  (a -> (acc, b)) ->
-  NonEmpty a ->
-  (acc, NonEmpty b)
-traverse1_NonEmpty_Writer f (a :| as) =
-  let (acc, b) = f a
-  in go acc (b:|) as
-  where
-    go acc endo [] = (acc, endo [])
-    go acc endo (a' : as') =
-      let (acc', b') = f a'
-      in go (acc <> acc') (endo . (b':)) as'
 
 data MarginPoints =
   MarginPoints
@@ -518,16 +482,16 @@ collageComposeN elements =
   At minOffset resultCollage
   where
     resultCollage =
-      Collage resultMargin resultExtents resultBaseline (collageBuilderCompose resultElements)
+      Collage resultMargin resultExtents resultBaseline resultElements
 
     resultMargin = fromMarginPoints resultExtents resultMarginPoints
 
     (CollageComposeAccum resultMarginPoints resultExtents resultBaseline minOffset, resultElements) =
-      traverse1_NonEmpty_Writer processElement elements
+      sconcat (fmap @NonEmpty processElement elements)
 
     processElement ::
       Positioned (Collage a) ->
-      (CollageComposeAccum, Positioned (CollageBuilder a))
+      (CollageComposeAccum, CollageBuilder a)
     processElement (At offset collage) =
       let
         extents = collageExtents collage
@@ -538,7 +502,7 @@ collageComposeN elements =
         extents' = extentsWithOffset offset' extents
         baseline' = baselineWithOffset offset' baseline
         marginPoints = toMarginPoints offset' extents margin
-        element' = At offset' (collageBuilder collage)
+        element' = collageBuilderWithOffset offset' (collageBuilder collage)
         acc = CollageComposeAccum marginPoints extents' baseline' offset
       in
         (acc, element')
@@ -564,12 +528,10 @@ collageDecorate ::
   Collage a
 collageDecorate d (Collage m e l b) =
   let
-    toCB = fmap @Positioned collageBuilder
-    bAt0 = At offsetZero b
-    bs = case d of
-      DecorationBelow d' -> toCB d' :| bAt0 : []
-      DecorationAbove d' -> bAt0 :| toCB d' : []
-    b' = collageBuilderCompose bs
+    toCB (At o c) = collageBuilderWithOffset o (collageBuilder c)
+    b' = case d of
+      DecorationBelow d' -> toCB d' <> b
+      DecorationAbove d' -> b <> toCB d'
   in
     Collage m e l b'
 
