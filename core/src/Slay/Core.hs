@@ -435,10 +435,7 @@ collageCompose ::
   Collage a ->
   Collage a
 collageCompose offset c1 c2 =
-  positionedItem . collageComposeN $
-    At offsetZero c1 :|
-    At offset c2 :
-    []
+  positionedItem (At offsetZero c1 <> At offset c2)
 
 -- reimplementation of 'foldMap1' with t~NonEmpty, to avoid
 -- a dependency on 'semigroupoids'
