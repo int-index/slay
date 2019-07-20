@@ -21,6 +21,9 @@ instance Semigroup (CairoRender g) where
       cairoRender r1 getG
       cairoRender r2 getG
 
+instance Monoid (CairoRender g) where
+  mempty = CairoRender $ \_ -> return ()
+
 data CairoElement g =
   CairoElement
     { cairoElementExtents :: Extents,
