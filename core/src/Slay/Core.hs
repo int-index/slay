@@ -87,6 +87,7 @@ module Slay.Core
 
   ) where
 
+import Control.Applicative (liftA2)
 import Numeric.Natural (Natural)
 import Data.String (IsString(..))
 import Data.List.NonEmpty (NonEmpty(..))
@@ -554,3 +555,12 @@ instance (Inj p' a, p ~ LRTB p') => Inj p (LRTB a) where
 -- | Construct and inject an 'LRTB' value.
 lrtb :: forall p a. Inj (LRTB p) a => p -> p -> p -> p -> a
 lrtb l r t b = inj (LRTB l r t b)
+
+instance Num a => Num (LRTB a) where
+  (+) = liftA2 (+)
+  (-) = liftA2 (-)
+  (*) = liftA2 (*)
+  negate = fmap negate
+  abs = fmap abs
+  signum = fmap signum
+  fromInteger = pure . fromInteger
