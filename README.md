@@ -5,7 +5,7 @@
 ## Building instructions
 
 ```
-./nix-cabal new-build all
+./nix-cabal v2-build all
 ```
 
 To achieve reproducible builds the versions of Haskell dependencies are
