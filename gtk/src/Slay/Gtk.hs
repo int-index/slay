@@ -19,6 +19,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Function
 import Control.Applicative
+import qualified Data.Char as Char
 
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.Rendering.Cairo.Matrix as Matrix
@@ -39,6 +40,7 @@ data PhaseCtx =
     { phCursor :: Natural,
       phCursorPhase :: Bool,
       phColorPhase :: Word8,
+      phMonoCharPhase :: Char,
       phCurvaturePhase :: Rational,
       phWidthPhase :: NonNegative Double }
 
@@ -61,6 +63,9 @@ phaseCursor mkX = WithPhase (\PhaseCtx{..} -> mkX phCursor phCursorPhase)
 
 phaseColor :: (Word8 -> x) -> WithPhase x
 phaseColor mkX = WithPhase (\PhaseCtx{..} -> mkX phColorPhase)
+
+phaseMonoChar :: WithPhase Char
+phaseMonoChar = WithPhase (\PhaseCtx{..} -> phMonoCharPhase)
 
 phaseCurvature :: (Rational -> x) -> WithPhase x
 phaseCurvature mkX = WithPhase (\PhaseCtx{..} -> mkX phCurvaturePhase)
@@ -117,18 +122,20 @@ example = do
         appStateCollageRender = mkCollageRender (appStateLabel this) }
   cursorPhaser <- createPhaser
   colorPhaser <- createPhaser
+  monoCharPhaser <- createPhaser
   widthPhaser <- createPhaser
   curvaturePhaser <- createPhaser
   _ <- flip Gtk.timeoutAdd 5 $ do
     Gtk.widgetQueueDraw drawArea -- Gtk.postGUIAsync not needed because
                                  -- Gtk.timeoutAdd callback operates inside
                                  -- the GUI thread
-    traverse_ updatePhaser [cursorPhaser, colorPhaser, widthPhaser, curvaturePhaser]
+    traverse_ updatePhaser [cursorPhaser, colorPhaser, monoCharPhaser, widthPhaser, curvaturePhaser]
     return True
   _ <- Gtk.on drawArea Gtk.draw $ do
     cursorPhase <- liftIO $ readPhaser cursorPhaser $ \w -> even (w `div` 100)
     colorPhase <- liftIO $ readPhaser colorPhaser $ \w -> case divMod w 256 of
       (d, m) -> fromIntegral $ if even d then m else 255 - m
+    monoCharPhase <- liftIO $ readPhaser monoCharPhaser $ \w -> Char.chr (Char.ord 'A' + fromIntegral w `div` 10 `mod` 26)
     widthPhase <- liftIO $ readPhaser widthPhaser $ \w -> case divMod w 1256 of
       (d, m) -> fromIntegral $ if even d then m else 1255 - m
     curvaturePhase <- liftIO $ readPhaser curvaturePhaser $ \w -> case divMod w 1256 of
@@ -157,6 +164,7 @@ example = do
         { phCursor = appStateCursor appState,
           phCursorPhase = cursorPhase,
           phColorPhase = colorPhase,
+          phMonoCharPhase = monoCharPhase,
           phCurvaturePhase = curvaturePhase,
           phWidthPhase = widthPhase }
     cairoRender collageRender fromG
@@ -323,6 +331,9 @@ example = do
 ubuntuFont :: Centi -> Font
 ubuntuFont size = Font "Ubuntu" size FontWeightNormal
 
+ubuntuMonoFont :: Centi -> Font
+ubuntuMonoFont size = Font "Ubuntu Mono" size FontWeightNormal
+
 exampleLayout :: (Text -> (Collage (CairoElement WithPhase), Extents), Word8 -> Color)
 exampleLayout =
   let
@@ -349,22 +360,25 @@ exampleLayout =
         (collageWithMargin (Margin 0 30 0 0)
           (circle (rgb 0 255 0) (phaseWidth $ \w -> Just (10 - (w/300))) 30))
     mkMsgbox msg =
-      substrate (lrtb 5 5 5 5) (rect (phaseConst Nothing) (phaseColor $ \colorPhase -> rgb colorPhase 130 200)) $
-      substrate (lrtb 1 1 1 1) (rect (phaseConst Nothing) (rgb 0 0 0)) $
-      substrate (lrtb 3 3 3 3) (rect (phaseConst Nothing) (rgb 255 255 255)) $
-      substrate (lrtb 3 3 3 3) theCurve $
+      substrate 5 (rect (phaseConst Nothing) (phaseColor $ \colorPhase -> rgb colorPhase 130 200)) $
+      substrate 1 (rect (phaseConst Nothing) (grayscale 0)) $
+      substrate 3 (rect (phaseConst Nothing) (grayscale 255)) $
+      substrate 3 theCurve $
         horizCenter
           (onyellowbkg theRectCircle)
           (dmbkg $
             collageWithMargin (Margin 20 0 0 0)
-            (text (ubuntuFont 12) (rgb 0 0 0) msg
+            (text (ubuntuFont 12) (grayscale 0) msg
             (phaseCursor $ \cursor c -> if c then Just cursor else Nothing)))
     msgbox2 =
-      substrate
-        (lrtb 5 5 5 5)
+      substrate 5
         (rect (phaseConst Nothing) (rgb 201 17 38))
-        (text (ubuntuFont 12) (rgb 0 0 0) "horiz\nbaseline" (phaseConst Nothing))
+        (text (ubuntuFont 12) (grayscale 0) "horiz\nbaseline" (phaseConst Nothing))
+    msgbox3 =
+      substrate 0
+        (rect (phaseConst Nothing) (rgb 17 201 38))
+        (monoChar (ubuntuMonoFont 12) (grayscale 20) phaseMonoChar)
     msgboxWithExtents msg =
-      let msgbox = horizBaseline (mkMsgbox msg) msgbox2
+      let msgbox = horizBaseline (mkMsgbox msg) (horizBaseline msgbox2 msgbox3)
       in (msgbox, collageExtents msgbox)
   in (msgboxWithExtents, background)
