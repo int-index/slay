@@ -67,6 +67,7 @@ module Slay.Core
     -- * Collage
     Collage,
     collageSingleton,
+    collageAnnotate,
     collageCompose,
     collageComposeN,
     collageExtents,
@@ -76,10 +77,7 @@ module Slay.Core
     collageBaseline,
     collageWithMargin,
     foldMapCollage,
-
-    -- * Decoration
-    Decoration(..),
-    collageDecorate,
+    mapCollageAnnotation,
 
     -- * LRTB
     LRTB(..),
@@ -319,42 +317,42 @@ class HasBaseline a where
 -- The bounding box (extents) of a collage is a vector from its top-left corner
 -- to the bottom-right corner.
 --
-data Collage a =
-  Collage Margin Extents Baseline (Offset -> CollageBuilder a)
+data Collage n a =
+  Collage Margin Extents Baseline (Offset -> (n, CollageBuilder a))
 
-instance HasExtents (Collage a) where
+instance HasExtents (Collage n a) where
   extentsOf = collageExtents
 
-instance HasBaseline (Collage a) where
+instance HasBaseline (Collage n a) where
   baselineOf = collageBaseline
 
 -- | Get the bounding box of a collage in constant time.
-collageExtents :: Collage a -> Extents
+collageExtents :: Collage n a -> Extents
 collageExtents (Collage _ e _ _) = e
 
 -- | Get the margin of a collage in constant time.
-collageMargin :: Collage a -> Margin
+collageMargin :: Collage n a -> Margin
 collageMargin (Collage m _ _ _) = m
 
 -- | Get the baseline in constant time.
-collageBaseline :: Collage a -> Baseline
+collageBaseline :: Collage n a -> Baseline
 collageBaseline (Collage _ _ l _) = l
 
-collageBuilder :: Collage a -> Offset -> CollageBuilder a
+collageBuilder :: Collage n a -> Offset -> (n, CollageBuilder a)
 collageBuilder (Collage _ _ _ b) = b
 
 -- | Get the width of a collage in constant time.
-collageWidth :: Collage a -> Natural
+collageWidth :: Collage n a -> Natural
 collageWidth = extentsW . collageExtents
 
 -- | Get the height of a collage in constant time.
-collageHeight :: Collage a -> Natural
+collageHeight :: Collage n a -> Natural
 collageHeight = extentsH . collageExtents
 
 -- | Set the margins of a collage to the pointwise maximum of their current
 -- value and the specified new value. Taking the maximum ensures we do not
 -- erase the margins computed from subcollages.
-collageWithMargin :: Margin -> Collage a -> Collage a
+collageWithMargin :: Margin -> Collage n a -> Collage n a
 collageWithMargin m' (Collage m e l b) =
   Collage (marginMax m' m) e l b
 
@@ -368,30 +366,44 @@ foldMapCollage ::
   Semigroup s =>
   (Positioned a -> s) ->
   Offset ->
-  Collage a ->
-  s
+  Collage n a ->
+  (n, s)
 foldMapCollage yield offset (Collage _ _ _ b) =
-  buildCollage (b offset) yield
+  let (n, CollageBuilder b') = b offset
+  in (n, b' yield)
 
 newtype CollageBuilder a =
-  CollageBuilder { buildCollage :: forall r. Semigroup r => (Positioned a -> r) -> r }
+  CollageBuilder (forall r. Semigroup r => (Positioned a -> r) -> r)
 
 collageBuilderSingleton :: a -> Offset -> CollageBuilder a
-collageBuilderSingleton a offset =
-  CollageBuilder { buildCollage = \yield -> yield (At offset a) }
+collageBuilderSingleton a =
+  \offset -> CollageBuilder ($ At offset a)
 
 instance Semigroup (CollageBuilder a) where
-  b1 <> b2 =
-    CollageBuilder $ \yield ->
-      buildCollage b1 yield <> buildCollage b2 yield
+  CollageBuilder b1 <> CollageBuilder b2 =
+    CollageBuilder $ \yield -> b1 yield <> b2 yield
 
 -- | Construct a collage from a single element.
-collageSingleton :: (HasExtents a, HasBaseline a) => a -> Collage a
+collageSingleton :: (HasExtents a, HasBaseline a, Monoid n) => a -> Collage n a
 collageSingleton a =
-  Collage marginZero (extentsOf a) (baselineOf a) (collageBuilderSingleton a)
+  Collage marginZero (extentsOf a) (baselineOf a) (\offset -> (mempty, collageBuilderSingleton a offset))
 
-instance (HasExtents a, HasBaseline a, IsString a) => IsString (Collage a) where
+instance (HasExtents a, HasBaseline a, IsString a, Monoid n) => IsString (Collage n a) where
   fromString = collageSingleton . fromString
+
+-- | Add an annotation to a collage.
+collageAnnotate :: Semigroup n => (Offset -> n) -> Collage n a -> Collage n a
+collageAnnotate mkann (Collage m e l b) =
+    Collage m e l (liftA2 withAnn mkann b)
+  where
+    withAnn ann = overFst (<> ann)
+
+-- | Modify the collage annotation.
+mapCollageAnnotation :: (n -> n') -> Collage n a -> Collage n' a
+mapCollageAnnotation f (Collage m e l b) = Collage m e l (overFst f . b)
+
+overFst :: (a -> a') -> (a, b) -> (a', b)
+overFst f (a, b) = (f a, b)
 
 -- | Combine a pair of collages by placing one atop another
 -- with an offset. For instance, an @'Offset' a b@ would yield
@@ -412,10 +424,11 @@ instance (HasExtents a, HasBaseline a, IsString a) => IsString (Collage a) where
 -- This is a special case of 'collageComposeN'.
 --
 collageCompose ::
+  Semigroup n =>
   Offset ->
-  Collage a ->
-  Collage a ->
-  Collage a
+  Collage n a ->
+  Collage n a ->
+  Collage n a
 collageCompose offset c1 c2 =
   positionedItem (At offsetZero c1 <> At offset c2)
 
@@ -469,8 +482,10 @@ instance Semigroup CollageComposeAccum where
 -- resulting collage.
 --
 collageComposeN ::
-  NonEmpty (Positioned (Collage a)) ->
-  Positioned (Collage a)
+  forall n a.
+  Semigroup n =>
+  NonEmpty (Positioned (Collage n a)) ->
+  Positioned (Collage n a)
 collageComposeN (positionedCollage :| []) =
   -- This special case is an optimization and does not affect the semantics.
   positionedCollage
@@ -486,8 +501,8 @@ collageComposeN elements =
       sconcat (fmap @NonEmpty processElement elements)
 
     processElement ::
-      Positioned (Collage a) ->
-      (CollageComposeAccum, Offset -> CollageBuilder a)
+      Positioned (Collage n a) ->
+      (CollageComposeAccum, Offset -> (n, CollageBuilder a))
     processElement (At offset collage) =
       let
         extents = collageExtents collage
@@ -503,33 +518,12 @@ collageComposeN elements =
       in
         (acc, element')
 
-instance Semigroup (Positioned (Collage a)) where
+instance Semigroup n => Semigroup (Positioned (Collage n a)) where
   a <> b = sconcat (a :| b : [])
   sconcat = collageComposeN
 
-instance (HasExtents a, HasBaseline a, Inj p a) => Inj p (Collage a) where
+instance (HasExtents a, HasBaseline a, Inj p a, Monoid n) => Inj p (Collage n a) where
   inj = collageSingleton . inj
-
--- | A decoration is an item in a collage does affect its layout. That is,
--- adding a decoration it has no effect on the extents, margins, or the
--- baseline of a collage.
-data Decoration a =
-  DecorationBelow a | DecorationAbove a
-  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
-
--- | Add a decoration to a collage.
-collageDecorate ::
-  Decoration (Positioned (Collage a)) ->
-  Collage a ->
-  Collage a
-collageDecorate d (Collage m e l b) =
-  let
-    toCB (At o c) = collageBuilder c . offsetAdd o
-    b' = case d of
-      DecorationBelow d' -> toCB d' <> b
-      DecorationAbove d' -> b <> toCB d'
-  in
-    Collage m e l b'
 
 -- | A value for each side: left, right, top, bottom.
 data LRTB a = LRTB

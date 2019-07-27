@@ -111,7 +111,7 @@ example = do
       let
         (mkCollage, background) = exampleLayout
         (collage, vextents) = mkCollage label
-        cRender = foldMapCollage cairoPositionedElementRender offsetZero collage
+        (_, cRender) = foldMapCollage cairoPositionedElementRender offsetZero collage
       in
         ((cRender, vextents), background)
   appStateRef <- newIORef $ fix $ \this ->
@@ -334,18 +334,13 @@ ubuntuFont size = Font "Ubuntu" size FontWeightNormal
 ubuntuMonoFont :: Centi -> Font
 ubuntuMonoFont size = Font "Ubuntu Mono" size FontWeightNormal
 
-exampleLayout :: (Text -> (Collage (CairoElement WithPhase), Extents), Word8 -> Color)
+exampleLayout :: (Text -> (Collage () (CairoElement WithPhase), Extents), Word8 -> Color)
 exampleLayout =
   let
     background colorPhase = RGB
       (colorPhase `div` 10)
       (colorPhase `div` 10)
       (colorPhase `div` 10)
-    onyellowbkg =
-      decorateMargin . DecorationAbove $
-        rect (lrtb @Integer 1 1 1 1) (rgb 100 100 0)
-    dmbkg = decorateMargin . DecorationBelow $
-      rect (phaseConst Nothing) (rgb 100 0 100)
     theCurve = curve
         (rgb 0 0 255)
         (phaseCurvature (Curvature.(subtract 1).(/628)))
@@ -365,9 +360,8 @@ exampleLayout =
       substrate 3 (rect (phaseConst Nothing) (grayscale 255)) $
       substrate 3 theCurve $
         horizCenter
-          (onyellowbkg theRectCircle)
-          (dmbkg $
-            collageWithMargin (Margin 20 0 0 0)
+          theRectCircle
+          (collageWithMargin (Margin 20 0 0 0)
             (text (ubuntuFont 12) (grayscale 0) msg
             (phaseCursor $ \cursor c -> if c then Just cursor else Nothing)))
     msgbox2 =

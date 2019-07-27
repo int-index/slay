@@ -2,7 +2,8 @@
 
 module Slay.Combinators
   ( substrate,
-    decorateMargin,
+    collageMarginBB,
+    collageAnnotateMargin,
     horiz,
     horizTop,
     horizBottom,
@@ -22,10 +23,11 @@ import Data.List.NonEmpty
 import Slay.Core
 
 substrate ::
+  Semigroup n =>
   LRTB Natural ->
-  (Extents -> Collage s) ->
-  Collage s ->
-  Collage s
+  (Extents -> Collage n a) ->
+  Collage n a ->
+  Collage n a
 substrate pad mkSub collage =
   collageCompose
     Offset
@@ -39,28 +41,36 @@ substrate pad mkSub collage =
       { extentsW = left pad + extentsW e + right pad,
         extentsH = top pad + extentsH e + bottom pad }
 
-decorateMargin ::
-  Decoration (Extents -> Collage a) ->
-  Collage a ->
-  Collage a
-decorateMargin d collage =
-  collageDecorate decoration collage
+-- | Collage margin bounding box. The offset is negative (top-left margin).
+collageMarginBB :: Collage n a -> (Offset, Extents)
+collageMarginBB collage = (offset, extents)
   where
     e = collageExtents collage
     m = collageMargin collage
     extents = Extents
       { extentsW = marginLeft m + extentsW e + marginRight m,
         extentsH = marginTop m + extentsH e + marginBottom m }
-    pos = Offset
+    offset = Offset
       { offsetX = negate . toInteger $ marginLeft m,
         offsetY = negate . toInteger $ marginTop m }
-    decoration = fmap @Decoration (\mkC -> At pos (mkC extents)) d
+
+collageAnnotateMargin ::
+  Semigroup n =>
+  ((Offset, Extents) -> n) ->
+  Collage n a ->
+  Collage n a
+collageAnnotateMargin ann collage =
+    collageAnnotate mkAnn collage
+  where
+    mkAnn offset' = ann (offsetAdd offset offset', extents)
+    (offset, extents) = collageMarginBB collage
 
 horiz, vert ::
-  (Collage s -> Integer) ->
-  Collage s ->
-  Collage s ->
-  Collage s
+  Semigroup n =>
+  (Collage n a -> Integer) ->
+  Collage n a ->
+  Collage n a ->
+  Collage n a
 horiz align c1 c2 =
   positionedItem $
     collageComposeN (At offset1 c1 :| At offset2 c2 : [])
@@ -83,20 +93,20 @@ vert align c1 c2 =
     offset2 = Offset{offsetX=align c2, offsetY}
 
 horizTop, horizBottom, horizCenter, horizBaseline ::
-  Collage s -> Collage s -> Collage s
+  Semigroup n => Collage n a -> Collage n a -> Collage n a
 horizTop = horiz (const 0)
 horizBottom = horiz (negate . toInteger . heightOf)
 horizCenter = horiz (negate . toInteger . (`quot` 2) . heightOf)
 horizBaseline = horiz (negate . toInteger . collageBaselineDefault)
 
-collageBaselineDefault :: Collage s -> Natural
+collageBaselineDefault :: Collage n a -> Natural
 collageBaselineDefault c =
   case collageBaseline c of
     NoBaseline -> heightOf c
     Baseline a -> a
 
 vertLeft, vertRight, vertCenter ::
-  Collage s -> Collage s -> Collage s
+  Semigroup n => Collage n a -> Collage n a -> Collage n a
 vertLeft = vert (const 0)
 vertRight = vert (negate . toInteger . widthOf)
 vertCenter = vert (negate . toInteger . (`quot` 2) . widthOf)
