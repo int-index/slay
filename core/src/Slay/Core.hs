@@ -320,7 +320,7 @@ class HasBaseline a where
 -- to the bottom-right corner.
 --
 data Collage a =
-  Collage Margin Extents Baseline (CollageBuilder a)
+  Collage Margin Extents Baseline (Offset -> CollageBuilder a)
 
 instance HasExtents (Collage a) where
   extentsOf = collageExtents
@@ -340,7 +340,7 @@ collageMargin (Collage m _ _ _) = m
 collageBaseline :: Collage a -> Baseline
 collageBaseline (Collage _ _ l _) = l
 
-collageBuilder :: Collage a -> CollageBuilder a
+collageBuilder :: Collage a -> Offset -> CollageBuilder a
 collageBuilder (Collage _ _ _ b) = b
 
 -- | Get the width of a collage in constant time.
@@ -371,24 +371,19 @@ foldMapCollage ::
   Collage a ->
   s
 foldMapCollage yield offset (Collage _ _ _ b) =
-  buildCollage b yield offset
+  buildCollage (b offset) yield
 
 newtype CollageBuilder a =
-  CollageBuilder { buildCollage :: forall r. Semigroup r => (Positioned a -> r) -> Offset -> r }
+  CollageBuilder { buildCollage :: forall r. Semigroup r => (Positioned a -> r) -> r }
 
-collageBuilderSingleton :: a -> CollageBuilder a
-collageBuilderSingleton a =
-  CollageBuilder { buildCollage = \yield offset -> yield (At offset a) }
-
-collageBuilderWithOffset :: Offset -> CollageBuilder a -> CollageBuilder a
-collageBuilderWithOffset o b =
-  CollageBuilder $ \yield offset ->
-    buildCollage b yield (offsetAdd offset o)
+collageBuilderSingleton :: a -> Offset -> CollageBuilder a
+collageBuilderSingleton a offset =
+  CollageBuilder { buildCollage = \yield -> yield (At offset a) }
 
 instance Semigroup (CollageBuilder a) where
   b1 <> b2 =
-    CollageBuilder $ \yield offset ->
-      buildCollage b1 yield offset <> buildCollage b2 yield offset
+    CollageBuilder $ \yield ->
+      buildCollage b1 yield <> buildCollage b2 yield
 
 -- | Construct a collage from a single element.
 collageSingleton :: (HasExtents a, HasBaseline a) => a -> Collage a
@@ -492,7 +487,7 @@ collageComposeN elements =
 
     processElement ::
       Positioned (Collage a) ->
-      (CollageComposeAccum, CollageBuilder a)
+      (CollageComposeAccum, Offset -> CollageBuilder a)
     processElement (At offset collage) =
       let
         extents = collageExtents collage
@@ -503,7 +498,7 @@ collageComposeN elements =
         extents' = extentsWithOffset offset' extents
         baseline' = baselineWithOffset offset' baseline
         marginPoints = toMarginPoints offset' extents margin
-        element' = collageBuilderWithOffset offset' (collageBuilder collage)
+        element' = collageBuilder collage . offsetAdd offset'
         acc = CollageComposeAccum marginPoints extents' baseline' offset
       in
         (acc, element')
@@ -529,7 +524,7 @@ collageDecorate ::
   Collage a
 collageDecorate d (Collage m e l b) =
   let
-    toCB (At o c) = collageBuilderWithOffset o (collageBuilder c)
+    toCB (At o c) = collageBuilder c . offsetAdd o
     b' = case d of
       DecorationBelow d' -> toCB d' <> b
       DecorationAbove d' -> b <> toCB d'
