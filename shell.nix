@@ -1,5 +1,6 @@
-{ pkgs ? import <nixpkgs> {},
-  hc ? "ghc844"
+let nixpkgsPin = import ./nix/nixpkgs-pin.nix; in
+{ pkgs ? import (builtins.fetchTarball nixpkgsPin) {},
+  hc ? "ghc865"
 }:
 
 pkgs.stdenv.mkDerivation rec {
