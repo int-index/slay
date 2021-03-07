@@ -96,8 +96,8 @@ import Inj
 -- | The position of an item (relative or absolute).
 data Offset =
   Offset
-    { offsetX :: Integer,
-      offsetY :: Integer
+    { offsetX :: !Integer,
+      offsetY :: !Integer
     } deriving (Eq, Ord, Show)
 
 -- | Lift a binary numeric operation to offsets,
@@ -169,14 +169,14 @@ unsafeOffsetExtents :: Offset -> Extents
 unsafeOffsetExtents (Offset x y) = Extents (fromInteger x) (fromInteger y)
 
 -- | Positioned item.
-data Positioned a = At { positionedOffset :: Offset, positionedItem :: a }
+data Positioned a = At { positionedOffset :: !Offset, positionedItem :: !a }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 -- | The size of an item.
 data Extents =
   Extents
-    { extentsW :: Natural,
-      extentsH :: Natural
+    { extentsW :: !Natural,
+      extentsH :: !Natural
     } deriving (Eq, Ord, Show)
 
 -- | Lift a binary numeric operation to extents,
@@ -227,10 +227,10 @@ widthOf = extentsW . extentsOf
 -- | A minimum recommended distance from an item to any other item.
 data Margin =
   Margin
-    { marginLeft :: Natural,
-      marginRight :: Natural,
-      marginTop :: Natural,
-      marginBottom :: Natural
+    { marginLeft :: !Natural,
+      marginRight :: !Natural,
+      marginTop :: !Natural,
+      marginBottom :: !Natural
     } deriving (Eq, Ord, Show)
 
 -- | Lift a binary numeric operation to margins,
@@ -318,7 +318,7 @@ class HasBaseline a where
 -- to the bottom-right corner.
 --
 data Collage n a =
-  Collage Margin Extents Baseline (Offset -> (n, CollageBuilder a))
+  Collage !Margin !Extents !Baseline !(Offset -> CollageBuilder n a)
 
 instance HasExtents (Collage n a) where
   extentsOf = collageExtents
@@ -338,7 +338,7 @@ collageMargin (Collage m _ _ _) = m
 collageBaseline :: Collage n a -> Baseline
 collageBaseline (Collage _ _ l _) = l
 
-collageBuilder :: Collage n a -> Offset -> (n, CollageBuilder a)
+collageBuilder :: Collage n a -> Offset -> CollageBuilder n a
 collageBuilder (Collage _ _ _ b) = b
 
 -- | Get the width of a collage in constant time.
@@ -369,24 +369,24 @@ foldMapCollage ::
   Collage n a ->
   (n, s)
 foldMapCollage yield offset (Collage _ _ _ b) =
-  let (n, CollageBuilder b') = b offset
-  in (n, b' yield)
+  case b offset of
+    CollageBuilder n b' -> (n, b' yield)
 
-newtype CollageBuilder a =
-  CollageBuilder (forall r. Semigroup r => (Positioned a -> r) -> r)
+data CollageBuilder n a =
+  CollageBuilder !n !(forall r. Semigroup r => (Positioned a -> r) -> r)
 
-collageBuilderSingleton :: a -> Offset -> CollageBuilder a
-collageBuilderSingleton a =
-  \offset -> CollageBuilder ($ At offset a)
+collageBuilderSingleton :: n -> a -> Offset -> CollageBuilder n a
+collageBuilderSingleton n a =
+  \offset -> CollageBuilder n ($ At offset a)
 
-instance Semigroup (CollageBuilder a) where
-  CollageBuilder b1 <> CollageBuilder b2 =
-    CollageBuilder $ \yield -> b1 yield <> b2 yield
+instance Semigroup n => Semigroup (CollageBuilder n a) where
+  CollageBuilder n1 b1 <> CollageBuilder n2 b2 =
+    CollageBuilder (n1 <> n2) (b1 <> b2)
 
 -- | Construct a collage from a single element.
 collageSingleton :: (HasExtents a, HasBaseline a, Monoid n) => a -> Collage n a
 collageSingleton a =
-  Collage marginZero (extentsOf a) (baselineOf a) (\offset -> (mempty, collageBuilderSingleton a offset))
+  Collage marginZero (extentsOf a) (baselineOf a) (collageBuilderSingleton mempty a)
 
 instance (HasExtents a, HasBaseline a, IsString a, Monoid n) => IsString (Collage n a) where
   fromString = collageSingleton . fromString
@@ -396,14 +396,14 @@ collageAnnotate :: Semigroup n => (Offset -> n) -> Collage n a -> Collage n a
 collageAnnotate mkann (Collage m e l b) =
     Collage m e l (liftA2 withAnn mkann b)
   where
-    withAnn ann = overFst (<> ann)
+    withAnn ann = mapCollageBuilderAnnotation (<> ann)
 
 -- | Modify the collage annotation.
 mapCollageAnnotation :: (n -> n') -> Collage n a -> Collage n' a
-mapCollageAnnotation f (Collage m e l b) = Collage m e l (overFst f . b)
+mapCollageAnnotation f (Collage m e l b) = Collage m e l (mapCollageBuilderAnnotation f . b)
 
-overFst :: (a -> a') -> (a, b) -> (a', b)
-overFst f (a, b) = (f a, b)
+mapCollageBuilderAnnotation :: (n -> n') -> CollageBuilder n a -> CollageBuilder n' a
+mapCollageBuilderAnnotation f (CollageBuilder n b) = CollageBuilder (f n) b
 
 -- | Combine a pair of collages by placing one atop another
 -- with an offset. For instance, an @'Offset' a b@ would yield
@@ -434,8 +434,8 @@ collageCompose offset c1 c2 =
 
 data MarginPoints =
   MarginPoints
-    Offset
-    Offset
+    !Offset
+    !Offset
 
 instance Semigroup MarginPoints where
   MarginPoints p1 q1 <> MarginPoints p2 q2 =
@@ -469,11 +469,18 @@ fromMarginPoints extents marginPoints =
     intNatCeil :: Integer -> Natural
     intNatCeil = fromInteger . max 0
 
-data CollageComposeAccum = CollageComposeAccum MarginPoints Extents Baseline Offset
+-- Lazy fields to tie the knot in collageComposeN (minOffset)
+data CollageComposeAccum n a =
+  CollageComposeAccum
+    Offset
+    MarginPoints
+    Extents
+    Baseline
+    (Offset -> CollageBuilder n a)
 
-instance Semigroup CollageComposeAccum where
-  CollageComposeAccum mp1 e1 l1 o1 <> CollageComposeAccum mp2 e2 l2 o2 =
-    CollageComposeAccum (mp1 <> mp2) (extentsMax e1 e2) (baselineMin l1 l2) (offsetMin o1 o2)
+instance Semigroup n => Semigroup (CollageComposeAccum n a) where
+  CollageComposeAccum o1 mp1 e1 l1 b1 <> CollageComposeAccum o2 mp2 e2 l2 b2 =
+    CollageComposeAccum (offsetMin o1 o2) (mp1 <> mp2) (extentsMax e1 e2) (baselineMin l1 l2) (b1 <> b2)
 
 -- | A generalization of 'collageCompose' to take a non-empty list of
 -- subcollages instead of a pair.
@@ -497,12 +504,12 @@ collageComposeN elements =
 
     resultMargin = fromMarginPoints resultExtents resultMarginPoints
 
-    (CollageComposeAccum resultMarginPoints resultExtents resultBaseline minOffset, resultElements) =
+    (CollageComposeAccum minOffset resultMarginPoints resultExtents resultBaseline resultElements) =
       sconcat (fmap @NonEmpty processElement elements)
 
     processElement ::
       Positioned (Collage n a) ->
-      (CollageComposeAccum, Offset -> (n, CollageBuilder a))
+      CollageComposeAccum n a
     processElement (At offset collage) =
       let
         extents = collageExtents collage
@@ -514,9 +521,8 @@ collageComposeN elements =
         baseline' = baselineWithOffset offset' baseline
         marginPoints = toMarginPoints offset' extents margin
         element' = collageBuilder collage . offsetAdd offset'
-        acc = CollageComposeAccum marginPoints extents' baseline' offset
       in
-        (acc, element')
+        CollageComposeAccum offset marginPoints extents' baseline' element'
 
 instance Semigroup n => Semigroup (Positioned (Collage n a)) where
   a <> b = sconcat (a :| b : [])
@@ -527,10 +533,10 @@ instance (HasExtents a, HasBaseline a, Inj p a, Monoid n) => Inj p (Collage n a)
 
 -- | A value for each side: left, right, top, bottom.
 data LRTB a = LRTB
-  { left :: a,
-    right :: a,
-    top :: a,
-    bottom :: a
+  { left :: !a,
+    right :: !a,
+    top :: !a,
+    bottom :: !a
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance Applicative LRTB where
